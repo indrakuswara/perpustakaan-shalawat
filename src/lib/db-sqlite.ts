@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import nodePath from "node:path";
 import { randomUUID } from "node:crypto";
 
 // Backend SQLite via node:sqlite (built-in Node, tanpa native dep).
@@ -22,7 +22,7 @@ function resolveDbPath(): string {
   const raw = process.env.DATABASE_URL ?? "file:./data/app.db";
   const path = raw.startsWith("file:") ? raw.slice("file:".length) : raw;
   // Path DB memang dinamis via env (perlu saat deploy); abaikan analisa statik Turbopack.
-  return resolve(process.cwd(), /*turbopackIgnore: true*/ path);
+  return nodePath.resolve(process.cwd(), /*turbopackIgnore: true*/ path);
 }
 
 function initSchema(db: DatabaseSync): void {
@@ -59,7 +59,7 @@ const globalForDb = globalThis as unknown as {
 export function getDb(): DatabaseSync {
   if (globalForDb.dbInstance) return globalForDb.dbInstance;
   const dbPath = resolveDbPath();
-  mkdirSync(dirname(dbPath), { recursive: true });
+  mkdirSync(nodePath.dirname(dbPath), { recursive: true });
   const db = new DatabaseSync(dbPath);
   initSchema(db);
   globalForDb.dbInstance = db;
