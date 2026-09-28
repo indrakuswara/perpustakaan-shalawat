@@ -36,13 +36,6 @@ export default function SiteHeader() {
               {n.label}
             </Link>
           ))}
-          <Link
-            href="/search"
-            aria-label="Cari"
-            className="ml-0.5 rounded-lg px-2 py-2 text-sm font-medium text-stone-600 transition hover:bg-stone-200/60 hover:text-stone-900 sm:ml-1 sm:px-3"
-          >
-            ⌕
-          </Link>
         </nav>
       </div>
     </header>
