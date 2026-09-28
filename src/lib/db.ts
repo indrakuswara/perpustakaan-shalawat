@@ -15,7 +15,7 @@ export type {
   ContentStatus,
   ContentType,
 } from "./db-types.ts";
-export { slugify } from "./db-types.ts";
+export { slugify, parseDbDateTime } from "./db-types.ts";
 
 function shouldUsePostgres(): boolean {
   const url = process.env.DATABASE_URL ?? "";

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentAdmin } from "@/lib/auth";
-import { listContents, type ContentStatus } from "@/lib/db";
+import { listContents, parseDbDateTime, type ContentStatus } from "@/lib/db";
 import {
   publishArticleAction,
   unpublishArticleAction,
@@ -108,7 +108,7 @@ export default async function ArticlesPage({
                   </h2>
                   <p className="mt-1 text-xs text-stone-500">
                     {TYPE_LABEL[a.type]} · diubah{" "}
-                    {new Date(a.updatedAt + "Z").toLocaleDateString("id-ID", {
+                    {parseDbDateTime(a.updatedAt).toLocaleDateString("id-ID", {
                       day: "numeric",
                       month: "short",
                       year: "numeric",

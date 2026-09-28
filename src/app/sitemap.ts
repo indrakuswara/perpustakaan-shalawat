@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { listPublishedContents } from "@/lib/db";
+import { listPublishedContents, parseDbDateTime } from "@/lib/db";
 
 function baseUrl(): string {
   return (
@@ -35,7 +35,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   for (const a of await listPublishedContents()) {
     urls.push({
       url: `${base}/baca/${a.slug}`,
-      lastModified: new Date(a.updatedAt + "Z"),
+      lastModified: parseDbDateTime(a.updatedAt),
       changeFrequency: "monthly",
       priority: 0.7,
     });

@@ -32,6 +32,7 @@ export async function createArticleAction(formData: FormData): Promise<void> {
     body: String(formData.get("body") ?? ""),
   });
   revalidatePath("/admin/articles");
+  revalidatePath("/", "layout");
   redirect(`/admin/articles/${article.id}`);
 }
 
@@ -47,6 +48,7 @@ export async function updateArticleAction(
     body: String(formData.get("body") ?? ""),
   });
   revalidatePath("/admin/articles");
+  revalidatePath("/", "layout");
   redirect(`/admin/articles/${id}`);
 }
 
@@ -54,6 +56,7 @@ export async function publishArticleAction(id: string): Promise<void> {
   await requireAdmin();
   await publishContent(id);
   revalidatePath("/admin/articles");
+  revalidatePath("/", "layout");
   redirect("/admin/articles");
 }
 
@@ -61,6 +64,7 @@ export async function unpublishArticleAction(id: string): Promise<void> {
   await requireAdmin();
   await unpublishContent(id);
   revalidatePath("/admin/articles");
+  revalidatePath("/", "layout");
   redirect("/admin/articles");
 }
 
@@ -68,5 +72,6 @@ export async function deleteArticleAction(id: string): Promise<void> {
   await requireAdmin();
   await deleteContent(id);
   revalidatePath("/admin/articles");
+  revalidatePath("/", "layout");
   redirect("/admin/articles");
 }

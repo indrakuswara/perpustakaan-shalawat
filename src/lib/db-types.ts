@@ -48,3 +48,11 @@ export function slugify(title: string): string {
     .replace(/^-+|-+$/g, "");
   return base || "artikel";
 }
+
+// Parse timestamp dari DB jadi Date.
+// - SQLite menyimpan "2026-09-28 10:51:50" (tanpa zona) -> anggap UTC.
+// - Postgres mengembalikan ISO "2026-09-28T10:51:50.123Z" -> langsung valid.
+export function parseDbDateTime(value: string): Date {
+  const s = value.includes("T") ? value : value.replace(" ", "T") + "Z";
+  return new Date(s);
+}
