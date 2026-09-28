@@ -16,8 +16,7 @@ export default async function HomePage() {
           Perpustakaan Digital Shalawat &amp; Maulid
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-stone-600 md:text-lg">
-          Kumpulan bacaan shalawat dan maulid yang bisa dibaca gratis —
-          di HP, kapan saja.
+          Kumpulan bacaan shalawat dan maulid yang bisa dibaca kapan saja.
         </p>
         <div className="mx-auto mt-8 max-w-xl">
           <SearchForm size="lg" />
