@@ -3,10 +3,10 @@ import { listPublishedContents } from "@/lib/db";
 import ArticleCard from "@/components/site/ArticleCard";
 import SearchForm from "@/components/site/SearchForm";
 
-export default function HomePage() {
-  const latest = listPublishedContents().slice(0, 6);
-  const shalawatCount = listPublishedContents("SHALAWAT").length;
-  const maulidCount = listPublishedContents("MAULID").length;
+export default async function HomePage() {
+  const latest = (await listPublishedContents()).slice(0, 6);
+  const shalawatCount = (await listPublishedContents("SHALAWAT")).length;
+  const maulidCount = (await listPublishedContents("MAULID")).length;
 
   return (
     <main>

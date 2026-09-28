@@ -1,7 +1,7 @@
 import { listPublishedContents, type ContentType } from "@/lib/db";
 import ArticleCard from "@/components/site/ArticleCard";
 
-export default function KoleksiPage({
+export default async function KoleksiPage({
   type,
   title,
   description,
@@ -10,7 +10,7 @@ export default function KoleksiPage({
   title: string;
   description: string;
 }) {
-  const articles = listPublishedContents(type);
+  const articles = await listPublishedContents(type);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-12 md:py-16">

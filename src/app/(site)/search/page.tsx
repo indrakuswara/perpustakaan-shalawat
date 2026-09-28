@@ -15,7 +15,7 @@ export default async function SearchPage({
 }) {
   const { q } = await searchParams;
   const query = (q ?? "").trim();
-  const results = query ? searchPublishedContents(query) : [];
+  const results = query ? await searchPublishedContents(query) : [];
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-12 md:py-16">

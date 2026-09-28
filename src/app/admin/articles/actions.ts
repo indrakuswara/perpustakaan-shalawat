@@ -25,7 +25,7 @@ function parseType(raw: FormDataEntryValue | null): ContentType {
 
 export async function createArticleAction(formData: FormData): Promise<void> {
   await requireAdmin();
-  const article = createContent({
+  const article = await createContent({
     title: String(formData.get("title") ?? ""),
     type: parseType(formData.get("type")),
     description: String(formData.get("description") ?? ""),
@@ -40,7 +40,7 @@ export async function updateArticleAction(
   formData: FormData,
 ): Promise<void> {
   await requireAdmin();
-  updateContent(id, {
+  await updateContent(id, {
     title: String(formData.get("title") ?? ""),
     type: parseType(formData.get("type")),
     description: String(formData.get("description") ?? ""),
@@ -52,21 +52,21 @@ export async function updateArticleAction(
 
 export async function publishArticleAction(id: string): Promise<void> {
   await requireAdmin();
-  publishContent(id);
+  await publishContent(id);
   revalidatePath("/admin/articles");
   redirect("/admin/articles");
 }
 
 export async function unpublishArticleAction(id: string): Promise<void> {
   await requireAdmin();
-  unpublishContent(id);
+  await unpublishContent(id);
   revalidatePath("/admin/articles");
   redirect("/admin/articles");
 }
 
 export async function deleteArticleAction(id: string): Promise<void> {
   await requireAdmin();
-  deleteContent(id);
+  await deleteContent(id);
   revalidatePath("/admin/articles");
   redirect("/admin/articles");
 }

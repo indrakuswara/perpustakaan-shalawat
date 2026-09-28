@@ -19,7 +19,7 @@ export default async function EditArticlePage({
   if (!admin) redirect("/admin/login");
 
   const { id } = await params;
-  const article = getContentById(id);
+  const article = await getContentById(id);
   if (!article) notFound();
 
   const isDraft = article.status === "DRAFT";

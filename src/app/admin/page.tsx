@@ -10,7 +10,7 @@ export default async function AdminDashboardPage() {
     redirect("/admin/login");
   }
 
-  const { total, published, drafts } = countContents();
+  const { total, published, drafts } = await countContents();
 
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-10">

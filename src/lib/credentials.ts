@@ -18,7 +18,7 @@ export async function authenticate(
   email: string,
   password: string,
 ): Promise<AdminRow | null> {
-  const admin = findAdminByEmail(email);
+  const admin = await findAdminByEmail(email);
   if (!admin) return null;
   const ok = await verifyPassword(password, admin.passwordHash);
   return ok ? admin : null;

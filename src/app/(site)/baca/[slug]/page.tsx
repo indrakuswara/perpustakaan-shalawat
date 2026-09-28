@@ -12,7 +12,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const article = getPublishedBySlug(slug);
+  const article = await getPublishedBySlug(slug);
   if (!article) return { title: "Tidak ditemukan" };
   return {
     title: article.title,
@@ -28,7 +28,7 @@ export default async function BacaPage({
 }) {
   const { slug } = await params;
   // Hanya yang PUBLISHED yang bisa dibaca — draft otomatis 404.
-  const article = getPublishedBySlug(slug);
+  const article = await getPublishedBySlug(slug);
   if (!article) notFound();
 
   return (

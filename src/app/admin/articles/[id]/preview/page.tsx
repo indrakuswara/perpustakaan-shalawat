@@ -15,7 +15,7 @@ export default async function ArticlePreviewPage({
   if (!admin) redirect("/admin/login");
 
   const { id } = await params;
-  const article = getContentById(id);
+  const article = await getContentById(id);
   if (!article) notFound();
 
   const isDraft = article.status === "DRAFT";

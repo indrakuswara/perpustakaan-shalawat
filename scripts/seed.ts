@@ -12,7 +12,7 @@ async function main() {
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
-  const admin = upsertAdmin(email, passwordHash, "ADMIN");
+  const admin = await upsertAdmin(email, passwordHash, "ADMIN");
   console.log(`Admin siap: ${admin.email}`);
 }
 

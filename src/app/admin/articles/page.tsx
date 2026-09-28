@@ -35,7 +35,7 @@ export default async function ArticlesPage({
     params.status === "DRAFT" || params.status === "PUBLISHED"
       ? params.status
       : undefined;
-  const articles = listContents(filter ? { status: filter } : {});
+  const articles = await listContents(filter ? { status: filter } : {});
 
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-10">

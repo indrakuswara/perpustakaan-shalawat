@@ -7,7 +7,7 @@ function baseUrl(): string {
   ).replace(/\/$/, "");
 }
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = baseUrl();
   const now = new Date();
   const urls: MetadataRoute.Sitemap = [
@@ -32,7 +32,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ];
   // Hanya artikel PUBLISHED yang masuk sitemap — draft tidak pernah terindeks.
-  for (const a of listPublishedContents()) {
+  for (const a of await listPublishedContents()) {
     urls.push({
       url: `${base}/baca/${a.slug}`,
       lastModified: new Date(a.updatedAt + "Z"),
