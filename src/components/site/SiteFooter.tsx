@@ -5,8 +5,8 @@ export default function SiteFooter() {
     <footer className="border-t border-stone-200/70 bg-stone-100/60">
       <div className="mx-auto flex max-w-5xl flex-col items-center gap-3 px-4 py-10 text-center">
         <p className="text-sm text-stone-600">
-          Perpustakaan digital shalawat &amp; maulid — gratis untuk dibaca
-          dan diamalkan.
+          Perpustakaan digital shalawat dan maulid untuk dibaca dan
+          diamalkan.
         </p>
         <nav className="flex gap-4 text-sm">
           <Link href="/shalawat" className="text-stone-600 hover:text-stone-800">
