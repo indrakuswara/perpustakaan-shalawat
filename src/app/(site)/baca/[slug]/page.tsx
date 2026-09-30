@@ -74,7 +74,7 @@ export default async function BacaPage({
         {article.blocks ? (
           <ReaderView blocks={article.blocks} />
         ) : (
-          <div className="font-serif text-lg leading-loose whitespace-pre-wrap text-stone-800 md:text-xl md:leading-loose">
+          <div className="font-serif text-lg leading-loose whitespace-pre-wrap text-stone-800 md:text-xl md:leading-loose md:text-justify">
             {article.body}
           </div>
         )}

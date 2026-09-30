@@ -48,7 +48,7 @@ export default async function ArticlePreviewPage({
           {article.blocks ? (
             <ReaderView blocks={article.blocks} />
           ) : (
-            <div className="font-serif text-lg leading-loose whitespace-pre-wrap text-stone-800">
+            <div className="font-serif text-lg leading-loose whitespace-pre-wrap text-stone-800 md:text-justify">
               {article.body}
             </div>
           )}

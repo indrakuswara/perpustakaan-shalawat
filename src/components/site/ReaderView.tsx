@@ -40,17 +40,17 @@ export default function ReaderView({ blocks }: { blocks: ArticleBlocks }) {
                     </p>
                   )}
                   {unit.latin && (
-                    <p className="mt-3 leading-relaxed text-teal-700">
+                    <p className="mt-3 leading-relaxed text-teal-700 md:text-justify">
                       {unit.latin}
                     </p>
                   )}
                   {unit.translation && (
-                    <p className="mt-2 leading-relaxed text-stone-600">
+                    <p className="mt-2 leading-relaxed text-stone-600 md:text-justify">
                       {unit.translation}
                     </p>
                   )}
                   {unit.text && (
-                    <p className="leading-loose text-stone-800">{unit.text}</p>
+                    <p className="leading-loose text-stone-800 md:text-justify">{unit.text}</p>
                   )}
                 </div>
               ))}
