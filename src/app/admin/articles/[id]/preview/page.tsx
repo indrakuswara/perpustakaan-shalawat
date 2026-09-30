@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { getCurrentAdmin } from "@/lib/auth";
 import { getContentById } from "@/lib/db";
+import ReaderView from "@/components/site/ReaderView";
 import { publishArticleAction } from "../../actions";
 
 const TYPE_LABEL = { SHALAWAT: "Shalawat", MAULID: "Maulid" } as const;
@@ -44,9 +45,13 @@ export default async function ArticlePreviewPage({
             <p className="mt-3 text-stone-500 italic">{article.description}</p>
           )}
           <hr className="my-8 border-stone-200" />
-          <div className="font-serif text-lg leading-loose whitespace-pre-wrap text-stone-800">
-            {article.body}
-          </div>
+          {article.blocks ? (
+            <ReaderView blocks={article.blocks} />
+          ) : (
+            <div className="font-serif text-lg leading-loose whitespace-pre-wrap text-stone-800">
+              {article.body}
+            </div>
+          )}
         </article>
 
         <div className="mx-auto mt-6 flex max-w-2xl flex-wrap gap-2">

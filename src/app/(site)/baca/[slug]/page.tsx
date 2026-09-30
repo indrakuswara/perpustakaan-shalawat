@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getPublishedBySlug } from "@/lib/db";
+import ReaderView from "@/components/site/ReaderView";
 
 const TYPE_LABEL = { SHALAWAT: "Shalawat", MAULID: "Maulid" } as const;
 const TYPE_HREF = { SHALAWAT: "/shalawat", MAULID: "/maulid" } as const;
@@ -70,9 +71,13 @@ export default async function BacaPage({
           <span className="h-px flex-1 bg-stone-200" />
         </div>
 
-        <div className="font-serif text-lg leading-loose whitespace-pre-wrap text-stone-800 md:text-xl md:leading-loose">
-          {article.body}
-        </div>
+        {article.blocks ? (
+          <ReaderView blocks={article.blocks} />
+        ) : (
+          <div className="font-serif text-lg leading-loose whitespace-pre-wrap text-stone-800 md:text-xl md:leading-loose">
+            {article.body}
+          </div>
+        )}
 
         <div
           aria-hidden
