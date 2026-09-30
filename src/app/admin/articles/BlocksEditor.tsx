@@ -314,8 +314,8 @@ export default function BlocksEditor({
                       <label className="mb-1 block text-xs font-medium text-stone-500">
                         Latin
                       </label>
-                      <input
-                        type="text"
+                      <textarea
+                        rows={3}
                         value={unit.latin}
                         onChange={(e) =>
                           update(
@@ -341,8 +341,8 @@ export default function BlocksEditor({
                       <label className="mb-1 block text-xs font-medium text-stone-500">
                         Terjemah
                       </label>
-                      <input
-                        type="text"
+                      <textarea
+                        rows={3}
                         value={unit.translation}
                         onChange={(e) =>
                           update(
