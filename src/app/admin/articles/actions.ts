@@ -11,6 +11,11 @@ import {
   deleteContent,
   type ContentType,
 } from "@/lib/db";
+import {
+  parseBlocks,
+  blocksToPlainText,
+  type ArticleBlocks,
+} from "@/lib/db-types";
 
 async function requireAdmin() {
   const admin = await getCurrentAdmin();
@@ -23,13 +28,25 @@ function parseType(raw: FormDataEntryValue | null): ContentType {
   return t;
 }
 
+function parseBlocksField(raw: FormDataEntryValue | null): ArticleBlocks {
+  let json: unknown;
+  try {
+    json = JSON.parse(String(raw ?? ""));
+  } catch {
+    throw new Error("Data blok tidak valid");
+  }
+  return parseBlocks(json);
+}
+
 export async function createArticleAction(formData: FormData): Promise<void> {
   await requireAdmin();
+  const blocks = parseBlocksField(formData.get("blocks"));
   const article = await createContent({
     title: String(formData.get("title") ?? ""),
     type: parseType(formData.get("type")),
     description: String(formData.get("description") ?? ""),
-    body: String(formData.get("body") ?? ""),
+    body: blocksToPlainText(blocks),
+    blocks,
   });
   revalidatePath("/admin/articles");
   revalidatePath("/", "layout");
@@ -41,11 +58,13 @@ export async function updateArticleAction(
   formData: FormData,
 ): Promise<void> {
   await requireAdmin();
+  const blocks = parseBlocksField(formData.get("blocks"));
   await updateContent(id, {
     title: String(formData.get("title") ?? ""),
     type: parseType(formData.get("type")),
     description: String(formData.get("description") ?? ""),
-    body: String(formData.get("body") ?? ""),
+    body: blocksToPlainText(blocks),
+    blocks,
   });
   revalidatePath("/admin/articles");
   revalidatePath("/", "layout");

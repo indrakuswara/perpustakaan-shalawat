@@ -197,7 +197,7 @@ export async function createContent(input: ContentInput): Promise<ContentRow> {
       input.type,
       input.description?.trim() || null,
       input.body,
-      // Driver pg menserialisasi object JS menjadi JSONB otomatis.
+      // Dikirim sebagai JSON string; Postgres meng-cast ke JSONB.
       input.blocks ? JSON.stringify(input.blocks) : null,
     ],
   );

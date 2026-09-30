@@ -1,6 +1,7 @@
 import type { ContentRow, ContentType } from "@/lib/db";
+import BlocksEditor from "./BlocksEditor";
 
-const inputCls =
+export const inputCls =
   "w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20";
 
 export default function ArticleForm({
@@ -65,24 +66,15 @@ export default function ArticleForm({
       </div>
 
       <div>
-        <label
-          htmlFor="body"
-          className="mb-1 block text-sm font-medium text-stone-700"
-        >
+        <span className="mb-1 block text-sm font-medium text-stone-700">
           Isi artikel
-        </label>
-        <textarea
-          id="body"
-          name="body"
-          required
-          rows={14}
-          defaultValue={initial?.body ?? ""}
-          placeholder="Tulis teks shalawat / maulid di sini…"
-          className={`${inputCls} font-serif leading-relaxed`}
+        </span>
+        <BlocksEditor
+          initial={initial?.blocks ?? null}
+          legacyBody={initial?.body ?? ""}
         />
         <p className="mt-1 text-xs text-stone-400">
-          Baris kosong = paragraf baru. Tersimpan sebagai draft sampai kamu
-          publish.
+          Susun bacaan per bagian. Tersimpan sebagai draft sampai kamu publish.
         </p>
       </div>
 
