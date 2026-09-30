@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { ArticleBlocks } from "@/lib/db-types";
-import { inputCls } from "./ArticleForm";
+import { inputCls } from "./formStyles";
 
 interface UnitState {
   id: string;
@@ -107,26 +107,49 @@ export default function BlocksEditor({
     initialSections(initial, legacyBody),
   );
   const [error, setError] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  // useEffectEvent selalu membaca state terbaru tanpa perlu re-subscribe.
+  const validateCurrentSections = useEffectEvent(() =>
+    validateSections(sections),
+  );
+
+  useEffect(() => {
+    // Event submit di-dispatch pada <form> dan bubble KE ATAS, jadi
+    // onSubmit pada div anak tidak pernah terpanggil. Daftarkan listener
+    // native langsung pada form leluhur.
+    const form = rootRef.current?.closest("form");
+    if (!form) return;
+    const onSubmit = (e: Event) => {
+      const msg = validateCurrentSections();
+      if (msg) {
+        e.preventDefault();
+        setError(msg);
+      }
+    };
+    form.addEventListener("submit", onSubmit);
+    return () => form.removeEventListener("submit", onSubmit);
+  }, []);
 
   const update = (next: SectionState[]) => {
     setSections(next);
     setError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    const msg = validateSections(sections);
-    if (msg) {
-      e.preventDefault();
-      setError(msg);
-    }
+  // Unit kosong dibuang saat serialisasi agar selaras dengan validasi server
+  // (parseBlocks me-throw untuk unit tanpa field terisi).
+  const payload = {
+    sections: sections.map((s) => ({
+      ...s,
+      units: s.units.filter(unitFilled),
+    })),
   };
 
   return (
-    <div onSubmit={handleSubmit}>
+    <div ref={rootRef}>
       <input
         type="hidden"
         name="blocks"
-        value={JSON.stringify({ sections })}
+        value={JSON.stringify(payload)}
       />
       {error && (
         <p
