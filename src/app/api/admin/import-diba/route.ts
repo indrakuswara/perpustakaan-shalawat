@@ -7,6 +7,16 @@ import { blocksToPlainText } from "@/lib/db-types";
 import { fetchDibaBlocks } from "@/lib/import-terjemahkitab";
 
 export async function POST() {
+  return runImport();
+}
+
+// GET didukung sementara supaya bisa dipicu via navigasi browser biasa
+// (tetap butuh session admin). Dihapus bersama rute ini.
+export async function GET() {
+  return runImport();
+}
+
+async function runImport() {
   const adminId = await getSessionAdminId();
   if (!adminId) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
