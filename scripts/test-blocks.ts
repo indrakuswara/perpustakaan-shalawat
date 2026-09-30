@@ -173,6 +173,41 @@ ok(
     }),
   ) === JSON.stringify(["bagian-niat-dan-hadiah-fatihah", "bagian-ya-rabbi-shalli"]),
 );
+ok(
+  "judul Arab murni -> anchor fallback bagian-{index}",
+  JSON.stringify(
+    sectionAnchorIds({
+      sections: [
+        { id: "a", title: "مَوْلِدُ الدِّيْبَعِيِّ", units: [{ id: "u1", text: "x" }] },
+        { id: "b", title: "Niat", units: [{ id: "u1", text: "x" }] },
+        { id: "c", title: "يَا رَبِّ صَلِّ", units: [{ id: "u1", text: "x" }] },
+      ],
+    }),
+  ) === JSON.stringify(["bagian-1", "bagian-niat", "bagian-3"]),
+);
+ok(
+  "fallback tidak tabrakan dengan slug normal",
+  JSON.stringify(
+    sectionAnchorIds({
+      sections: [
+        { id: "a", title: "2", units: [{ id: "u1", text: "x" }] },
+        { id: "b", title: "مَوْلِد", units: [{ id: "u1", text: "x" }] },
+      ],
+    }),
+  ) === JSON.stringify(["bagian-2", "bagian-2-2"]),
+);
+ok(
+  "collision silang antar judul tetap unik",
+  JSON.stringify(
+    sectionAnchorIds({
+      sections: [
+        { id: "a", title: "Niat-2", units: [{ id: "u1", text: "x" }] },
+        { id: "b", title: "Niat", units: [{ id: "u1", text: "x" }] },
+        { id: "c", title: "Niat", units: [{ id: "u1", text: "x" }] },
+      ],
+    }),
+  ) === JSON.stringify(["bagian-niat-2", "bagian-niat", "bagian-niat-3"]),
+);
 
 console.log(`\n${passed} lulus, ${failed} gagal`);
 process.exit(failed ? 1 : 0);

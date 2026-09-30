@@ -162,11 +162,25 @@ export function blocksToPlainText(blocks: ArticleBlocks): string {
 // Anchor per section untuk daftar isi: "bagian-<slug-judul>".
 // Judul duplikat mendapat suffix -2, -3, dst agar tidak tabrakan.
 export function sectionAnchorIds(blocks: ArticleBlocks): string[] {
-  const seen = new Map<string, number>();
-  return blocks.sections.map((s) => {
-    const base = `bagian-${slugify(s.title)}`;
-    const n = (seen.get(base) ?? 0) + 1;
-    seen.set(base, n);
-    return n === 1 ? base : `${base}-${n}`;
+  const used = new Set<string>();
+  return blocks.sections.map((s, i) => {
+    // slugify mengembalikan "artikel" bila judul tidak mengandung karakter latin
+    // yang bisa di-slug (mis. judul Arab murni) -> fallback berbasis posisi section
+    // agar anchor tetap unik dan tidak menyesatkan. Judul yang memang bertuliskan
+    // "Artikel" ikut memakai fallback; ini dapat diterima karena anchor hanya
+    // perlu unik dan berfungsi sebagai target link.
+    const slug = slugify(s.title);
+    const base = slug === "artikel" ? `bagian-${i + 1}` : `bagian-${slug}`;
+    // Dedup lintas semua anchor yang sudah dipakai, bukan per-base saja, supaya
+    // fallback ("bagian-2") tidak bertabrakan dengan slug normal ("bagian-2"
+    // dari judul "2") dan judul seperti "Niat-2" vs "Niat".
+    let anchor = base;
+    let n = 2;
+    while (used.has(anchor)) {
+      anchor = `${base}-${n}`;
+      n++;
+    }
+    used.add(anchor);
+    return anchor;
   });
 }
