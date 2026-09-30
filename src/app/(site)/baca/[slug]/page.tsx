@@ -34,7 +34,7 @@ export default async function BacaPage({
 
   return (
     <main className="px-4 py-10 md:py-14">
-      <article className="mx-auto max-w-2xl">
+      <article className={article.blocks ? "mx-auto max-w-5xl" : "mx-auto max-w-2xl"}>
         <nav className="text-sm text-stone-600" aria-label="Breadcrumb">
           <Link href="/" className="hover:text-stone-800">
             Beranda

@@ -34,7 +34,7 @@ export default async function ArticlePreviewPage({
       </div>
 
       <div className="px-4 py-10">
-        <article className="mx-auto max-w-2xl rounded-2xl border border-stone-200 bg-white p-8 shadow-sm md:p-12">
+        <article className={article.blocks ? "mx-auto max-w-5xl rounded-2xl border border-stone-200 bg-white p-8 shadow-sm md:p-12" : "mx-auto max-w-2xl rounded-2xl border border-stone-200 bg-white p-8 shadow-sm md:p-12"}>
           <p className="text-sm font-medium tracking-wide text-emerald-800 uppercase">
             {TYPE_LABEL[article.type]}
           </p>
