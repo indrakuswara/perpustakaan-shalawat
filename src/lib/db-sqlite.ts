@@ -10,13 +10,14 @@ import { randomUUID } from "node:crypto";
 
 import type {
   AdminRow,
+  ArticleBlocks,
   ContentFilter,
   ContentInput,
   ContentRow,
   ContentStatus,
   ContentType,
 } from "./db-types.ts";
-import { slugify } from "./db-types.ts";
+import { parseBlocksSafe, slugify } from "./db-types.ts";
 
 function resolveDbPath(): string {
   const raw = process.env.DATABASE_URL ?? "file:./data/app.db";
@@ -50,6 +51,15 @@ function initSchema(db: DatabaseSync): void {
     CREATE INDEX IF NOT EXISTS idx_contents_status ON contents(status);
     CREATE INDEX IF NOT EXISTS idx_contents_type_status ON contents(type, status);
   `);
+  // Migrasi ringan: tambah kolom blocks untuk DB yang dibuat sebelum fitur ini.
+  const hasBlocks = (
+    db
+      .prepare("SELECT name FROM pragma_table_info('contents') WHERE name = 'blocks'")
+      .get() as { name: string } | undefined
+  );
+  if (!hasBlocks) {
+    db.exec("ALTER TABLE contents ADD COLUMN blocks TEXT");
+  }
 }
 
 const globalForDb = globalThis as unknown as {
@@ -129,7 +139,12 @@ function mapContent(row: unknown): ContentRow {
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
     publishedAt: r.published_at,
+    blocks: parseBlocksSafe(r.blocks),
   };
+}
+
+function blocksToJson(blocks: ArticleBlocks | null | undefined): string | null {
+  return blocks ? JSON.stringify(blocks) : null;
 }
 
 function uniqueSlug(base: string, excludeId?: string): string {
@@ -161,8 +176,8 @@ export function createContent(input: ContentInput): ContentRow {
   const id = randomUUID();
   const slug = uniqueSlug(slugify(title));
   db.prepare(
-    `INSERT INTO contents (id, title, slug, type, description, body, status)
-     VALUES (?, ?, ?, ?, ?, ?, 'DRAFT')`,
+    `INSERT INTO contents (id, title, slug, type, description, body, blocks, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'DRAFT')`,
   ).run(
     id,
     title,
@@ -170,6 +185,7 @@ export function createContent(input: ContentInput): ContentRow {
     input.type,
     input.description?.trim() || null,
     input.body,
+    blocksToJson(input.blocks),
   );
   return getContentById(id) as ContentRow;
 }
@@ -253,10 +269,13 @@ export function updateContent(
   }
   const slug =
     title !== existing.title ? uniqueSlug(slugify(title), id) : existing.slug;
+  // blocks: undefined = pertahankan yang lama; null/object = timpa.
+  const blocks =
+    input.blocks !== undefined ? input.blocks : existing.blocks;
   getDb()
     .prepare(
       `UPDATE contents
-       SET title = ?, slug = ?, type = ?, description = ?, body = ?,
+       SET title = ?, slug = ?, type = ?, description = ?, body = ?, blocks = ?,
            updated_at = datetime('now')
        WHERE id = ?`,
     )
@@ -268,6 +287,7 @@ export function updateContent(
         ? input.description.trim() || null
         : existing.description,
       body,
+      blocksToJson(blocks),
       id,
     );
   return getContentById(id) as ContentRow;

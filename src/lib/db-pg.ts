@@ -13,7 +13,7 @@ import type {
   ContentStatus,
   ContentType,
 } from "./db-types.ts";
-import { slugify } from "./db-types.ts";
+import { parseBlocksSafe, slugify } from "./db-types.ts";
 
 // --- Koneksi ---
 
@@ -67,6 +67,10 @@ async function ensureSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_contents_status ON contents(status);
     CREATE INDEX IF NOT EXISTS idx_contents_type_status ON contents(type, status);
   `);
+  // Migrasi ringan: tambah kolom blocks untuk DB yang dibuat sebelum fitur ini.
+  await getPool().query(
+    "ALTER TABLE contents ADD COLUMN IF NOT EXISTS blocks JSONB",
+  );
   globalForPool.pgSchemaReady = true;
 }
 
@@ -106,6 +110,9 @@ function mapContent(r: Record<string, unknown>): ContentRow {
     createdAt: toISO(r.created_at),
     updatedAt: toISO(r.updated_at),
     publishedAt: r.published_at == null ? null : toISO(r.published_at),
+    // Driver pg mengembalikan JSONB sebagai object; pg-mem bisa string/object.
+    // parseBlocksSafe menangani keduanya dan tidak pernah throw.
+    blocks: parseBlocksSafe(r.blocks),
   };
 }
 
@@ -181,9 +188,18 @@ export async function createContent(input: ContentInput): Promise<ContentRow> {
   const id = randomUUID();
   const slug = await uniqueSlug(slugify(title));
   await query(
-    `INSERT INTO contents (id, title, slug, type, description, body, status)
-     VALUES ($1, $2, $3, $4, $5, $6, 'DRAFT')`,
-    [id, title, slug, input.type, input.description?.trim() || null, input.body],
+    `INSERT INTO contents (id, title, slug, type, description, body, blocks, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'DRAFT')`,
+    [
+      id,
+      title,
+      slug,
+      input.type,
+      input.description?.trim() || null,
+      input.body,
+      // Driver pg menserialisasi object JS menjadi JSONB otomatis.
+      input.blocks ? JSON.stringify(input.blocks) : null,
+    ],
   );
   return (await getContentById(id)) as ContentRow;
 }
@@ -278,11 +294,13 @@ export async function updateContent(
   }
   const slug =
     title !== existing.title ? await uniqueSlug(slugify(title), id) : existing.slug;
+  // blocks: undefined = pertahankan yang lama; null/object = timpa.
+  const blocks = input.blocks !== undefined ? input.blocks : existing.blocks;
   await query(
     `UPDATE contents
-     SET title = $1, slug = $2, type = $3, description = $4, body = $5,
+     SET title = $1, slug = $2, type = $3, description = $4, body = $5, blocks = $6,
          updated_at = now()
-     WHERE id = $6`,
+     WHERE id = $7`,
     [
       title,
       slug,
@@ -291,6 +309,7 @@ export async function updateContent(
         ? input.description.trim() || null
         : existing.description,
       body,
+      blocks ? JSON.stringify(blocks) : null,
       id,
     ],
   );

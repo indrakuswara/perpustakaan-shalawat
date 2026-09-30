@@ -23,6 +23,9 @@ export interface ContentRow {
   createdAt: string;
   updatedAt: string;
   publishedAt: string | null;
+  // Blok terstruktur (nullable): null = artikel lama / tanpa blok.
+  // blocks korup di DB dipetakan jadi null, tidak pernah throw (lihat parseBlocksSafe).
+  blocks: ArticleBlocks | null;
 }
 
 export interface ContentInput {
@@ -30,6 +33,7 @@ export interface ContentInput {
   type: ContentType;
   description?: string;
   body: string;
+  blocks?: ArticleBlocks | null;
 }
 
 export interface ContentFilter {
@@ -157,6 +161,20 @@ export function blocksToPlainText(blocks: ArticleBlocks): string {
         .join("\n\n"),
     )
     .join("\n\n");
+}
+
+// Versi aman dari parseBlocks untuk mapping baris DB: mengembalikan null
+// (bukan throw) bila nilai kosong, JSON rusak, atau shape tidak valid.
+// Menerima string JSON (kolom TEXT di SQLite) maupun object
+// (kolom JSONB di Postgres yang sudah di-parse driver).
+export function parseBlocksSafe(raw: unknown): ArticleBlocks | null {
+  if (raw === undefined || raw === null) return null;
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return parseBlocks(parsed);
+  } catch {
+    return null;
+  }
 }
 
 // Anchor per section untuk daftar isi: "bagian-<slug-judul>".
