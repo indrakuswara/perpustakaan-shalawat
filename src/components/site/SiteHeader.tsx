@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 const NAV = [
@@ -11,12 +12,14 @@ export default function SiteHeader() {
     <header className="sticky top-0 z-10 border-b border-stone-200/70 bg-stone-50/85 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2.5">
-          <span
+          <Image
+            src="/icon.svg"
+            alt=""
             aria-hidden
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-900 text-lg text-amber-100"
-          >
-            ✦
-          </span>
+            width={36}
+            height={36}
+            className="h-9 w-9 rounded-xl"
+          />
           <span className="leading-tight">
             <span className="block text-[15px] font-semibold text-stone-900">
               Perpustakaan Shalawat
