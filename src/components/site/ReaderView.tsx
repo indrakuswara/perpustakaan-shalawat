@@ -1,6 +1,7 @@
 import type { ArticleBlocks } from "@/lib/db-types";
 import { sectionAnchorIds } from "@/lib/db-types";
 import TocDropdown from "./TocDropdown";
+import CopyButton from "./CopyButton";
 
 function UnitDivider() {
   return <hr className="my-8 border-stone-200/70" aria-hidden />;
@@ -31,13 +32,16 @@ export default function ReaderView({ blocks }: { blocks: ArticleBlocks }) {
                 <div key={unit.id}>
                   {unitIndex > 0 && <UnitDivider />}
                   {unit.arab && (
-                    <p
-                      dir="rtl"
-                      lang="ar"
-                      className="font-arab text-right text-[1.75rem] leading-[2.2] text-stone-900 md:text-4xl"
-                    >
-                      {unit.arab}
-                    </p>
+                    <div className="flex items-start gap-1">
+                      <p
+                        dir="rtl"
+                        lang="ar"
+                        className="font-arab flex-1 text-right text-[1.75rem] leading-[2.2] text-stone-900 md:text-4xl"
+                      >
+                        {unit.arab}
+                      </p>
+                      <CopyButton text={unit.arab} label="Salin teks Arab" />
+                    </div>
                   )}
                   {unit.latin && (
                     <p className="mt-3 leading-relaxed text-teal-700 md:text-justify">
@@ -45,9 +49,12 @@ export default function ReaderView({ blocks }: { blocks: ArticleBlocks }) {
                     </p>
                   )}
                   {unit.translation && (
-                    <p className="mt-2 leading-relaxed text-stone-600 md:text-justify">
-                      {unit.translation}
-                    </p>
+                    <div className="mt-2 flex items-start gap-1">
+                      <p className="flex-1 leading-relaxed text-stone-600 md:text-justify">
+                        {unit.translation}
+                      </p>
+                      <CopyButton text={unit.translation} label="Salin terjemahan" />
+                    </div>
                   )}
                   {unit.text && (
                     <p className="leading-loose text-stone-800 md:text-justify">{unit.text}</p>
