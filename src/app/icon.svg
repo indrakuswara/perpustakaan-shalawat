@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#064e3b"/>
+  <!-- kilau cahaya di atas kitab -->
+  <path d="M256 78c4 22 14 32 36 36-22 4-32 14-36 36-4-22-14-32-36-36 22-4 32-14 36-36z" fill="#f0d47a"/>
+  <path d="M166 116c2.5 14 9 20 23 22.5-14 2.5-20.5 8.5-23 22.5-2.5-14-9-20-23-22.5 14-2.5 20.5-8.5 23-22.5z" fill="#f0d47a" opacity=".8"/>
+  <path d="M346 116c2.5 14 9 20 23 22.5-14 2.5-20.5 8.5-23 22.5-2.5-14-9-20-23-22.5 14-2.5 20.5-8.5 23-22.5z" fill="#f0d47a" opacity=".8"/>
+  <!-- kitab terbuka -->
+  <path d="M104 208c48-16 100-16 152 10v172c-52-26-104-26-152-10z" fill="#cfa52f"/>
+  <path d="M408 208c-48-16-100-16-152 10v172c52-26 104-26 152-10z" fill="#cfa52f"/>
+  <!-- punggung kitab -->
+  <rect x="251" y="214" width="10" height="180" fill="#064e3b" opacity=".3"/>
+  <!-- baris halaman -->
+  <g stroke="#064e3b" stroke-width="11" stroke-linecap="round" opacity=".85">
+    <path d="M134 262h72"/>
+    <path d="M134 300h72"/>
+    <path d="M134 338h48"/>
+    <path d="M306 262h72"/>
+    <path d="M306 300h72"/>
+    <path d="M330 338h48"/>
+  </g>
+</svg>
