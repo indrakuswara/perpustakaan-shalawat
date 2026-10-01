@@ -1,12 +1,14 @@
 // Importer sekali-jalan: maulid dari terjemahkitab.com -> draft artikel.
-// Dijalankan: node --experimental-strip-types scripts/import-terjemahkitab.ts [diba|simtudduror]
+// Dijalankan: node --experimental-strip-types scripts/import-terjemahkitab.ts [diba|simtudduror|adhiya]
 // Tanpa DATABASE_URL -> pakai .env lokal (SQLite, untuk dry-run).
 // Artikel SELALU dibuat sebagai DRAFT (createContent memaksa DRAFT).
 import {
   fetchDibaBlocks,
   fetchSimtuddurorBlocks,
+  fetchAdhiyaUlamiBlocks,
   DIBA_SOURCE_URL,
   SIMTUDDUROR_SOURCE_URL,
+  ADHIYA_ULAMI_SOURCE_URL,
 } from "../src/lib/import-terjemahkitab.ts";
 import { blocksToPlainText } from "../src/lib/db-types.ts";
 
@@ -28,13 +30,24 @@ const TARGETS = {
       "Maulid Simtudduror (Simthud Durar) karya Habib Ali bin Muhammad Al-Habsyi, " +
       "lengkap dengan terjemah bahasa Indonesia. Sumber teks: terjemahkitab.com.",
   },
+  adhiya: {
+    sourceUrl: ADHIYA_ULAMI_SOURCE_URL,
+    fetch: fetchAdhiyaUlamiBlocks,
+    title: "Maulid Adh-Dhiya'ul Lami'",
+    type: "MAULID" as const,
+    description:
+      "Maulid Adh-Dhiya'ul Lami' (الضياء اللامع) karya Habib Umar bin Muhammad bin Hafidz, " +
+      "lengkap dengan teks Arab, Latin, dan terjemah bahasa Indonesia. Sumber teks: salawat.com.",
+  },
 };
 
 async function main() {
   const arg = process.argv[2] ?? "diba";
   const target = TARGETS[arg as keyof typeof TARGETS];
   if (!target) {
-    console.error(`Target tidak dikenal: ${arg} (pilih: diba | simtudduror)`);
+    console.error(
+      `Target tidak dikenal: ${arg} (pilih: diba | simtudduror | adhiya)`,
+    );
     process.exit(1);
   }
 

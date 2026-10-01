@@ -9,6 +9,8 @@ export const DIBA_SOURCE_URL =
   "https://terjemahkitab.com/terjemah-maulid-diba/";
 export const SIMTUDDUROR_SOURCE_URL =
   "https://terjemahkitab.com/terjemah-maulid-simtudduror/";
+export const ADHIYA_ULAMI_SOURCE_URL =
+  "https://salawat.com/id/maulid-adhiya-ulami/";
 
 // Batas section Diba'i [start, end) dalam indeks paragraf.
 // Ditentukan manual dari struktur halaman sumber; total harus mencakup semua paragraf.
@@ -219,4 +221,186 @@ export function simtuddurorBlocksFromToggles(
 export async function fetchSimtuddurorBlocks(): Promise<ArticleBlocks> {
   const html = await fetchHtml(SIMTUDDUROR_SOURCE_URL);
   return simtuddurorBlocksFromToggles(extractSimtuddurorToggles(html));
+}
+
+// ---------------------------------------------------------------------------
+// Maulid Adh-Dhiya'ul Lami' (salawat.com)
+// ---------------------------------------------------------------------------
+// Halaman sumber memakai satu blok ber-class per bait:
+//   <div class="dua-text-white qasaid-audio-item">
+//     <div class="arabic">...</div>
+//     <div class="transliteration">...</div>
+//     <div class="translation">NN. ...</div>
+//   </div>
+// Tiap bait punya 3 lapis: Arab + Latin + terjemah Indonesia.
+// Pembagian section mengikuti heading (h1-h4) dalam urutan dokumen:
+// "Bab N" digabung dengan heading sesudahnya ("Bab 1: ...");
+// heading "Refrain" hanyalah penanda mahallul qiyam, bukan section.
+// Bait pembuka (basmalah) tidak bernomor; sisanya bernomor urut 1..N.
+
+export interface AdhiyaUlamiUnit {
+  arab: string;
+  latin: string;
+  translation: string;
+}
+
+export interface AdhiyaUlamiSection {
+  title: string;
+  units: AdhiyaUlamiUnit[];
+}
+
+function cleanInline(s: string): string {
+  return s
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Ambil isi <div class="cls">...</div> pertama dalam [from, end).
+function leafDiv(
+  html: string,
+  from: number,
+  end: number,
+  cls: string,
+): string | null {
+  const m = new RegExp(`<div class="${cls}">([\\s\\S]*?)</div>`).exec(
+    html.slice(from, end),
+  );
+  return m ? cleanInline(m[1]) : null;
+}
+
+function parseAdhiyaUnit(
+  html: string,
+  pos: number,
+  end: number,
+  index: number,
+): { unit: AdhiyaUlamiUnit; num: number | null } {
+  const arab = leafDiv(html, pos, end, "arabic");
+  const latin = leafDiv(html, pos, end, "transliteration");
+  const rawTranslation = leafDiv(html, pos, end, "translation");
+  if (!arab || !latin || !rawTranslation)
+    throw new Error(
+      `Blok bait Adhiya Ulami #${index + 1} tidak lengkap (arab/latin/terjemah)`,
+    );
+  if (!hasArabic(arab))
+    throw new Error(`Blok bait Adhiya Ulami #${index + 1} tanpa teks Arab`);
+  const numMatch = /^(\d+)\.\s*/.exec(rawTranslation);
+  return {
+    unit: {
+      arab,
+      latin,
+      translation: numMatch
+        ? rawTranslation.slice(numMatch[0].length)
+        : rawTranslation,
+    },
+    num: numMatch ? parseInt(numMatch[1], 10) : null,
+  };
+}
+
+export function extractAdhiyaUlamiSections(
+  html: string,
+): AdhiyaUlamiSection[] {
+  type Event =
+    | { kind: "heading"; pos: number; text: string; level: string }
+    | { kind: "unit"; pos: number };
+  const events: Event[] = [];
+  for (const m of html.matchAll(/<h([1-4])[^>]*>([\s\S]*?)<\/h\1>/g)) {
+    const text = stripTags(m[2]);
+    if (text && m.index !== undefined)
+      events.push({ kind: "heading", pos: m.index, text, level: m[1] });
+  }
+  const unitRe = /<div class="dua-text-white qasaid-audio-item">/g;
+  let um: RegExpExecArray | null;
+  while ((um = unitRe.exec(html)) !== null)
+    events.push({ kind: "unit", pos: um.index });
+  events.sort((a, b) => a.pos - b.pos);
+  if (!events.some((e) => e.kind === "unit"))
+    throw new Error("Blok bait Adhiya Ulami tidak ditemukan");
+
+  const sections: AdhiyaUlamiSection[] = [];
+  let pending: AdhiyaUlamiUnit[] = []; // unit sebelum heading section pertama
+  let babPrefix = "";
+  let unitIndex = 0;
+  let expectedNum = 1;
+  const skippedTitles = new Set<string>(); // judul halaman (h1) + duplikatnya
+  // Heading sebelum bait pertama adalah chrome situs (search, TOC, judul),
+  // bukan section kitab.
+  const firstUnitPos = events.find((e) => e.kind === "unit")?.pos ?? 0;
+
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i];
+    if (e.kind === "heading") {
+      if (e.pos < firstUnitPos) continue; // chrome situs sebelum konten
+      if (e.level === "1" || skippedTitles.has(e.text.toLowerCase())) {
+        skippedTitles.add(e.text.toLowerCase());
+        continue; // judul halaman, bukan section kitab
+      }
+      if (/^bab \d+$/i.test(e.text)) {
+        babPrefix = e.text;
+        continue;
+      }
+      if (/^refrain$/i.test(e.text)) continue; // penanda, bukan section
+      if (/^(daftar isi|table of contents)$/i.test(e.text)) continue; // widget TOC situs
+      const title = babPrefix ? `${babPrefix}: ${e.text}` : e.text;
+      babPrefix = "";
+      sections.push({ title, units: pending });
+      pending = [];
+      continue;
+    }
+    const nextUnitPos =
+      events
+        .slice(i + 1)
+        .find((x) => x.kind === "unit")?.pos ?? html.length;
+    // Class yang sama juga dipakai untuk pembungkus heading section
+    // (isinya <h3>, tanpa div arabic) — lewati, heading-nya sudah
+    // ditangani event heading.
+    if (leafDiv(html, e.pos, nextUnitPos, "arabic") === null) continue;
+    const { unit, num } = parseAdhiyaUnit(html, e.pos, nextUnitPos, unitIndex);
+    unitIndex++;
+    if (num === null) {
+      if (expectedNum !== 1)
+        throw new Error(
+          `Bait Adhiya Ulami tak bernomor di tengah urutan (setelah bait ${expectedNum - 1})`,
+        );
+    } else {
+      if (num !== expectedNum)
+        throw new Error(
+          `Nomor bait Adhiya Ulami tidak urut: dapat ${num}, ekspektasi ${expectedNum}`,
+        );
+      expectedNum++;
+    }
+    if (sections.length === 0) pending.push(unit);
+    else sections[sections.length - 1].units.push(unit);
+  }
+
+  // Heading sesudah bait terakhir (mis. "Video") bukan section.
+  const nonEmpty = sections.filter((s) => s.units.length > 0);
+  if (nonEmpty.length === 0)
+    throw new Error("Tidak ada section Adhiya Ulami yang terisi");
+  return nonEmpty;
+}
+
+export function adhiyaUlamiBlocksFromSections(
+  sections: AdhiyaUlamiSection[],
+): ArticleBlocks {
+  const blocks: ArticleBlocks = {
+    sections: sections.map((s) => ({
+      id: randomUUID(),
+      title: s.title,
+      units: s.units.map((u) => ({
+        id: randomUUID(),
+        arab: u.arab,
+        latin: u.latin,
+        translation: u.translation,
+      })),
+    })),
+  };
+  parseBlocks(blocks); // validasi skema; throw bila invalid
+  return blocks;
+}
+
+export async function fetchAdhiyaUlamiBlocks(): Promise<ArticleBlocks> {
+  const html = await fetchHtml(ADHIYA_ULAMI_SOURCE_URL);
+  return adhiyaUlamiBlocksFromSections(extractAdhiyaUlamiSections(html));
 }
