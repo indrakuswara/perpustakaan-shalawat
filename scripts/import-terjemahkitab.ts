@@ -1,16 +1,45 @@
-// Importer sekali-jalan: Maulid Diba'i dari terjemahkitab.com -> draft artikel.
-// Dijalankan: DATABASE_URL="<db>" node --experimental-strip-types scripts/import-terjemahkitab.ts
+// Importer sekali-jalan: maulid dari terjemahkitab.com -> draft artikel.
+// Dijalankan: node --experimental-strip-types scripts/import-terjemahkitab.ts [diba|simtudduror]
 // Tanpa DATABASE_URL -> pakai .env lokal (SQLite, untuk dry-run).
 // Artikel SELALU dibuat sebagai DRAFT (createContent memaksa DRAFT).
 import {
   fetchDibaBlocks,
+  fetchSimtuddurorBlocks,
   DIBA_SOURCE_URL,
+  SIMTUDDUROR_SOURCE_URL,
 } from "../src/lib/import-terjemahkitab.ts";
 import { blocksToPlainText } from "../src/lib/db-types.ts";
 
+const TARGETS = {
+  diba: {
+    sourceUrl: DIBA_SOURCE_URL,
+    fetch: fetchDibaBlocks,
+    title: "Maulid Diba'i",
+    type: "MAULID" as const,
+    description:
+      "Maulid Ad-Diba'i lengkap dengan terjemah bahasa Indonesia. Sumber teks: terjemahkitab.com.",
+  },
+  simtudduror: {
+    sourceUrl: SIMTUDDUROR_SOURCE_URL,
+    fetch: fetchSimtuddurorBlocks,
+    title: "Maulid Simtudduror",
+    type: "MAULID" as const,
+    description:
+      "Maulid Simtudduror (Simthud Durar) karya Habib Ali bin Muhammad Al-Habsyi, " +
+      "lengkap dengan terjemah bahasa Indonesia. Sumber teks: terjemahkitab.com.",
+  },
+};
+
 async function main() {
-  console.log(`Mengambil ${DIBA_SOURCE_URL} ...`);
-  const blocks = await fetchDibaBlocks();
+  const arg = process.argv[2] ?? "diba";
+  const target = TARGETS[arg as keyof typeof TARGETS];
+  if (!target) {
+    console.error(`Target tidak dikenal: ${arg} (pilih: diba | simtudduror)`);
+    process.exit(1);
+  }
+
+  console.log(`Mengambil ${target.sourceUrl} ...`);
+  const blocks = await target.fetch();
   const total = blocks.sections.reduce((n, s) => n + s.units.length, 0);
   console.log(
     `Valid: ${blocks.sections.length} section, ${total} unit. ` +
@@ -26,10 +55,9 @@ async function main() {
   }
   const { createContent } = await import("../src/lib/db.ts");
   const row = await createContent({
-    title: "Maulid Diba'i",
-    type: "MAULID",
-    description:
-      "Maulid Ad-Diba'i lengkap dengan terjemah bahasa Indonesia. Sumber teks: terjemahkitab.com.",
+    title: target.title,
+    type: target.type,
+    description: target.description,
     body: blocksToPlainText(blocks),
     blocks,
   });
