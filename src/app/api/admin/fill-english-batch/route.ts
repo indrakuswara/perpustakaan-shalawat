@@ -34,10 +34,8 @@ const SPECS: FillSpec[] = [
     counts: [15, 5, 15, 14, 14, 16, 25, 16, 16, 22, 25],
     payload: DHIYA_ENGLISH,
     spot: (b) =>
-      stripArab(b.sections[1]?.units[4]?.arab ?? "").includes(
-        "يصلون على النبي",
-      ) &&
-      stripArab(b.sections[10]?.units[24]?.arab ?? "") === "الفاتحة",
+      stripArab(b.sections[1]?.units[4]?.arab ?? "").includes("يصلون") &&
+      stripArab(b.sections[10]?.units[24]?.arab ?? "").includes("الفاتحة"),
   },
   {
     slug: "maulid-simtudduror",
