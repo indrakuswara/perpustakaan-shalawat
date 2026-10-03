@@ -267,6 +267,52 @@ ok(
   "english berada setelah translation & sebelum text",
   blocksToPlainText(blocksEng) === "ARAB1\nTERJEMAH1\nENGLISH1\nTEKS1",
 );
+const blocksEngLatin: ArticleBlocks = {
+  sections: [
+    {
+      id: "s1",
+      title: "Bagian 1",
+      units: [
+        {
+          id: "u1",
+          arab: "ARAB1",
+          latin: "LATIN1",
+          translation: "TERJEMAH1",
+          english: "ENGLISH1",
+          text: "TEKS1",
+        },
+      ],
+    },
+  ],
+};
+ok(
+  "lima field lengkap: urutan arab, latin, translation, english, text",
+  blocksToPlainText(blocksEngLatin) === "ARAB1\nLATIN1\nTERJEMAH1\nENGLISH1\nTEKS1",
+);
+
+console.log("== round-trip payload editor ==");
+// Editor mengirim semua field sebagai string (kosong = "") lewat JSON
+// di hidden input; parseBlocks di server action harus menjaga english.
+const editorPayload: unknown = JSON.parse(
+  JSON.stringify({
+    sections: [
+      {
+        id: "s1",
+        title: "A",
+        units: [
+          { id: "u1", arab: "x", latin: "", translation: "y", english: "z", text: "" },
+        ],
+      },
+    ],
+  }),
+);
+const rt = parseBlocks(editorPayload);
+ok(
+  "english selamat lewat round-trip payload editor",
+  rt.sections[0].units[0].english === "z" &&
+    rt.sections[0].units[0].translation === "y" &&
+    rt.sections[0].units[0].latin === undefined,
+);
 
 console.log(`\n${passed} lulus, ${failed} gagal`);
 process.exit(failed ? 1 : 0);

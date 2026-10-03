@@ -87,5 +87,18 @@ ok(
   ) === "يَا رَبِّ\nEnglish: O my Lord\nCatatan.",
 );
 
+ok(
+  "lima lapis lengkap: urutan arab, latin, Artinya, English, text",
+  formatUnitForCopy(
+    unit({
+      arab: "يَا رَبِّ",
+      latin: "Yâ Rabbi",
+      translation: "Ya Rabbi",
+      english: "O my Lord",
+      text: "Catatan.",
+    }),
+  ) === "يَا رَبِّ\nYâ Rabbi\nArtinya: Ya Rabbi\nEnglish: O my Lord\nCatatan.",
+);
+
 console.log(`\n${passed} lulus, ${failed} gagal`);
 process.exit(failed ? 1 : 0);
