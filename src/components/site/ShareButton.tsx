@@ -21,19 +21,27 @@ export default function ShareButton({
   const [open, setOpen] = useState(false);
   const [copyState, setCopyState] = useState<CopyState>("idle");
   const wrapRef = useRef<HTMLDivElement>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const links = buildShareLinks(title, url);
+
+  function closeMenu() {
+    setOpen(false);
+    setCopyState("idle");
+  }
 
   useEffect(() => {
     if (!open) return;
     function onDocClick(e: MouseEvent) {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
         setOpen(false);
+        setCopyState("idle");
       }
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        setCopyState("idle");
+      }
     }
     document.addEventListener("mousedown", onDocClick);
     document.addEventListener("keydown", onKey);
@@ -42,12 +50,6 @@ export default function ShareButton({
       document.removeEventListener("keydown", onKey);
     };
   }, [open ]);
-
-  useEffect(() => {
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, []);
 
   async function handleMainClick() {
     if (
@@ -67,13 +69,13 @@ export default function ShareButton({
   }
 
   async function handleCopy() {
+    // Menu SENGAJA dibiarkan terbuka setelah salin: label item berubah
+    // jadi feedback ("Tautan disalin ✓" / "Gagal menyalin, coba lagi")
+    // dan tetap terlihat sampai user menutup menu sendiri (klik luar /
+    // Escape / klik item lain). Auto-tutup pakai timer bikin feedback
+    // hilang sebelum sempat terbaca.
     const ok = await copyTextToClipboard(url);
     setCopyState(ok ? "copied" : "failed");
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      setCopyState("idle");
-      setOpen(false);
-    }, 1600);
   }
 
   const copyStatus =
@@ -126,7 +128,7 @@ export default function ShareButton({
             target="_blank"
             rel="noreferrer"
             className={itemClass}
-            onClick={() => setOpen(false)}
+            onClick={closeMenu}
           >
             WhatsApp
           </a>
@@ -136,7 +138,7 @@ export default function ShareButton({
             target="_blank"
             rel="noreferrer"
             className={itemClass}
-            onClick={() => setOpen(false)}
+            onClick={closeMenu}
           >
             Telegram
           </a>
@@ -146,7 +148,11 @@ export default function ShareButton({
             onClick={handleCopy}
             className={itemClass}
           >
-            {copyState === "copied" ? "Tautan disalin ✓" : "Salin tautan"}
+            {copyState === "copied"
+              ? "Tautan disalin ✓"
+              : copyState === "failed"
+                ? "Gagal menyalin, coba lagi"
+                : "Salin tautan"}
           </button>
           <span aria-live="polite" className="sr-only">
             {copyStatus}
