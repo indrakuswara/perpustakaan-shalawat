@@ -9,6 +9,7 @@ interface UnitState {
   arab: string;
   latin: string;
   translation: string;
+  english: string;
   text: string;
 }
 
@@ -27,6 +28,7 @@ function emptyUnit(): UnitState {
     arab: "",
     latin: "",
     translation: "",
+    english: "",
     text: "",
   };
 }
@@ -44,6 +46,7 @@ function initialSections(
         arab: u.arab ?? "",
         latin: u.latin ?? "",
         translation: u.translation ?? "",
+        english: u.english ?? "",
         text: u.text ?? "",
       })),
     }));
@@ -79,6 +82,7 @@ function unitFilled(u: UnitState): boolean {
     u.arab.trim() !== "" ||
     u.latin.trim() !== "" ||
     u.translation.trim() !== "" ||
+    u.english.trim() !== "" ||
     u.text.trim() !== ""
   );
 }
@@ -361,6 +365,33 @@ export default function BlocksEditor({
                           )
                         }
                         placeholder="Terjemahan bahasa Indonesia…"
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-stone-500">
+                        English
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={unit.english}
+                        onChange={(e) =>
+                          update(
+                            sections.map((s, i) =>
+                              i === si
+                                ? {
+                                    ...s,
+                                    units: s.units.map((u, j) =>
+                                      j === ui
+                                        ? { ...u, english: e.target.value }
+                                        : u,
+                                    ),
+                                  }
+                                : s,
+                            ),
+                          )
+                        }
+                        placeholder="Terjemahan bahasa Inggris…"
                         className={inputCls}
                       />
                     </div>
