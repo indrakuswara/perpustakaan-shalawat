@@ -64,12 +64,13 @@ export function parseDbDateTime(value: string): Date {
 // ---- Blok konten terstruktur (reader ala NU Online) ----
 
 // Satu unit bacaan: tiap field opsional, minimal satu terisi.
-// Contoh: { arab, latin, translation } / { text } / { arab, translation }.
+// Contoh: { arab, latin, translation, english } / { text } / { arab, translation }.
 export interface ArticleUnit {
   id: string;
   arab?: string;
   latin?: string;
   translation?: string;
+  english?: string;
   text?: string;
 }
 
@@ -84,7 +85,7 @@ export interface ArticleBlocks {
   sections: ArticleSection[];
 }
 
-const BLOCK_FIELDS = ["arab", "latin", "translation", "text"] as const;
+const BLOCK_FIELDS = ["arab", "latin", "translation", "english", "text"] as const;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -135,7 +136,7 @@ export function parseBlocks(raw: unknown): ArticleBlocks {
             const val = cleanText(u[f], f);
             if (val !== undefined) unit[f] = val;
           }
-          if (!unit.arab && !unit.latin && !unit.translation && !unit.text)
+          if (!unit.arab && !unit.latin && !unit.translation && !unit.english && !unit.text)
             throw new Error(
               `Unit ke-${ui + 1} pada bagian "${title}" wajib memiliki minimal satu field terisi`,
             );
@@ -147,14 +148,14 @@ export function parseBlocks(raw: unknown): ArticleBlocks {
 }
 
 // Turunan teks polos dari blok: untuk kolom body (search, SEO, sitemap).
-// Field per unit digabung sesuai urutan arab -> latin -> translation -> text;
+// Field per unit digabung sesuai urutan arab -> latin -> translation -> english -> text;
 // antar unit dipisah baris kosong.
 export function blocksToPlainText(blocks: ArticleBlocks): string {
   return blocks.sections
     .map((s) =>
       s.units
         .map((u) =>
-          [u.arab, u.latin, u.translation, u.text]
+          [u.arab, u.latin, u.translation, u.english, u.text]
             .filter((f): f is string => !!f)
             .join("\n"),
         )

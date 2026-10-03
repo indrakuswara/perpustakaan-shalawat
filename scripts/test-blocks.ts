@@ -209,5 +209,64 @@ ok(
   ) === JSON.stringify(["bagian-niat-2", "bagian-niat", "bagian-niat-3"]),
 );
 
+console.log("== parseBlocks: field english ==");
+const bEng = parseBlocks({
+  sections: [
+    {
+      id: "s1",
+      title: "Shalawat",
+      units: [
+        {
+          id: "u1",
+          arab: "يَارَبِّ صَلِّ عَلَى مُحَمَّدْ",
+          latin: "Yâ Rabbi shalli 'alâ Muhammad",
+          translation: "Ya Rabbi, limpahkan shalawat kepada Muhammad",
+          english: "O my Lord, send blessings upon Muhammad",
+        },
+      ],
+    },
+  ],
+});
+ok(
+  "unit dengan english valid & terbaca",
+  bEng.sections[0].units[0].english === "O my Lord, send blessings upon Muhammad",
+);
+throws("english bukan string ditolak", () =>
+  parseBlocks({ sections: [{ id: "s1", title: "A", units: [{ id: "u1", english: 123 }] }] }),
+);
+const bEngWs = parseBlocks({
+  sections: [
+    { id: "s1", title: "A", units: [{ id: "u1", arab: "x", english: "   " }] },
+  ],
+});
+ok(
+  "english whitespace-only dinormalisasi jadi tidak terisi",
+  bEngWs.sections[0].units[0].english === undefined,
+);
+const bEngOnly = parseBlocks({
+  sections: [{ id: "s1", title: "A", units: [{ id: "u1", english: "Only English." }] }],
+});
+ok(
+  "unit hanya english tetap valid (minimal satu field)",
+  bEngOnly.sections[0].units[0].english === "Only English.",
+);
+
+console.log("== blocksToPlainText: english ==");
+const blocksEng: ArticleBlocks = {
+  sections: [
+    {
+      id: "s1",
+      title: "Bagian 1",
+      units: [
+        { id: "u1", arab: "ARAB1", translation: "TERJEMAH1", english: "ENGLISH1", text: "TEKS1" },
+      ],
+    },
+  ],
+};
+ok(
+  "english berada setelah translation & sebelum text",
+  blocksToPlainText(blocksEng) === "ARAB1\nTERJEMAH1\nENGLISH1\nTEKS1",
+);
+
 console.log(`\n${passed} lulus, ${failed} gagal`);
 process.exit(failed ? 1 : 0);
