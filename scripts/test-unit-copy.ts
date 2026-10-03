@@ -31,27 +31,27 @@ ok(
       translation: "Ya Rabbi",
       english: "O my Lord",
     }),
-  ) === "يَا رَبِّ\nYâ Rabbi\nArtinya: Ya Rabbi\nEnglish: O my Lord",
+  ) === "يَا رَبِّ\nYâ Rabbi\nYa Rabbi\nO my Lord",
 );
 
 ok(
   "tanpa latin: tidak ada baris kosong di tengah",
   formatUnitForCopy(
     unit({ arab: "يَا رَبِّ", translation: "Ya Rabbi", english: "O my Lord" }),
-  ) === "يَا رَبِّ\nArtinya: Ya Rabbi\nEnglish: O my Lord",
+  ) === "يَا رَبِّ\nYa Rabbi\nO my Lord",
 );
 
 ok(
   "tanpa english: tidak ada label English",
   formatUnitForCopy(
     unit({ arab: "يَا رَبِّ", latin: "Yâ Rabbi", translation: "Ya Rabbi" }),
-  ) === "يَا رَبِّ\nYâ Rabbi\nArtinya: Ya Rabbi",
+  ) === "يَا رَبِّ\nYâ Rabbi\nYa Rabbi",
 );
 
 ok(
   "tanpa latin & english (kasus Diba'i): arab + Artinya saja",
   formatUnitForCopy(unit({ arab: "يَا رَبِّ", translation: "Ya Rabbi" })) ===
-    "يَا رَبِّ\nArtinya: Ya Rabbi",
+    "يَا رَبِّ\nYa Rabbi",
 );
 
 ok(
@@ -64,27 +64,27 @@ ok(
   "field whitespace-only dianggap kosong",
   formatUnitForCopy(
     unit({ arab: "يَا رَبِّ", latin: "   ", translation: "Ya Rabbi", english: "  " }),
-  ) === "يَا رَبِّ\nArtinya: Ya Rabbi",
+  ) === "يَا رَبِّ\nYa Rabbi",
 );
 
 ok(
   "translation kosong tapi english terisi: tidak ada label Artinya yatim",
   formatUnitForCopy(unit({ arab: "يَا رَبِّ", english: "O my Lord" })) ===
-    "يَا رَبِّ\nEnglish: O my Lord",
+    "يَا رَبِّ\nO my Lord",
 );
 
 ok(
   "nilai field di-trim dalam hasil copy",
   formatUnitForCopy(
     unit({ arab: "  يَا رَبِّ  ", translation: "  Ya Rabbi  " }),
-  ) === "يَا رَبِّ\nArtinya: Ya Rabbi",
+  ) === "يَا رَبِّ\nYa Rabbi",
 );
 
 ok(
   "text ikut setelah english bila keduanya ada",
   formatUnitForCopy(
     unit({ arab: "يَا رَبِّ", english: "O my Lord", text: "Catatan." }),
-  ) === "يَا رَبِّ\nEnglish: O my Lord\nCatatan.",
+  ) === "يَا رَبِّ\nO my Lord\nCatatan.",
 );
 
 ok(
@@ -97,7 +97,7 @@ ok(
       english: "O my Lord",
       text: "Catatan.",
     }),
-  ) === "يَا رَبِّ\nYâ Rabbi\nArtinya: Ya Rabbi\nEnglish: O my Lord\nCatatan.",
+  ) === "يَا رَبِّ\nYâ Rabbi\nYa Rabbi\nO my Lord\nCatatan.",
 );
 
 console.log(`\n${passed} lulus, ${failed} gagal`);
