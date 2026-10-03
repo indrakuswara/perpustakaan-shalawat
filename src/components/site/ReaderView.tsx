@@ -1,5 +1,6 @@
 import type { ArticleBlocks } from "@/lib/db-types";
 import { sectionAnchorIds } from "@/lib/db-types";
+import { formatUnitForCopy } from "@/lib/unit-copy";
 import TocDropdown from "./TocDropdown";
 import CopyButton from "./CopyButton";
 
@@ -31,6 +32,14 @@ export default function ReaderView({ blocks }: { blocks: ArticleBlocks }) {
               {section.units.map((unit, unitIndex) => (
                 <div key={unit.id}>
                   {unitIndex > 0 && <UnitDivider />}
+                  {!unit.arab && (
+                    <div className="flex justify-end">
+                      <CopyButton
+                        text={formatUnitForCopy(unit)}
+                        label="Salin bait ini"
+                      />
+                    </div>
+                  )}
                   {unit.arab && (
                     <div className="flex items-start gap-1">
                       <p
@@ -40,7 +49,10 @@ export default function ReaderView({ blocks }: { blocks: ArticleBlocks }) {
                       >
                         {unit.arab}
                       </p>
-                      <CopyButton text={unit.arab} label="Salin teks Arab" />
+                      <CopyButton
+                        text={formatUnitForCopy(unit)}
+                        label="Salin bait ini"
+                      />
                     </div>
                   )}
                   {unit.latin && (
@@ -49,12 +61,17 @@ export default function ReaderView({ blocks }: { blocks: ArticleBlocks }) {
                     </p>
                   )}
                   {unit.translation && (
-                    <div className="mt-2 flex items-start gap-1">
-                      <p className="flex-1 leading-relaxed text-stone-600 md:text-justify">
-                        {unit.translation}
-                      </p>
-                      <CopyButton text={unit.translation} label="Salin terjemahan" />
-                    </div>
+                    <p className="mt-2 leading-relaxed text-stone-600 md:text-justify">
+                      {unit.translation}
+                    </p>
+                  )}
+                  {unit.english && (
+                    <p
+                      lang="en"
+                      className="mt-2 leading-relaxed text-stone-500 italic md:text-justify"
+                    >
+                      {unit.english}
+                    </p>
                   )}
                   {unit.text && (
                     <p className="leading-loose text-stone-800 md:text-justify">{unit.text}</p>

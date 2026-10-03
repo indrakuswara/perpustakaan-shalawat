@@ -5,7 +5,8 @@ import { copyTextToClipboard } from "@/lib/copy-text";
 
 type CopyState = "idle" | "copied" | "failed";
 
-// Tombol salin kecil per lapis teks (Arab / terjemah).
+// Tombol salin per unit (bait): menyalin semua lapis unit sekaligus
+// (format dari formatUnitForCopy di src/lib/unit-copy.ts).
 // Target sentuh min 44px supaya nyaman di mobile; selalu terlihat (tanpa hover-only).
 // aria-label stabil — status diumumkan lewat live region, bukan dengan mengganti nama tombol.
 export default function CopyButton({
