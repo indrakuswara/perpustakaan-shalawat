@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getPublishedBySlug } from "@/lib/db";
+import { SITE_URL } from "@/lib/site-url";
 import ReaderView from "@/components/site/ReaderView";
+import ShareButton from "@/components/site/ShareButton";
 
 const TYPE_LABEL = { SHALAWAT: "Shalawat", MAULID: "Maulid" } as const;
 const TYPE_HREF = { SHALAWAT: "/shalawat", MAULID: "/maulid" } as const;
@@ -15,10 +17,25 @@ export async function generateMetadata({
   const { slug } = await params;
   const article = await getPublishedBySlug(slug);
   if (!article) return { title: "Tidak ditemukan" };
+  const description =
+    article.description ?? article.body.slice(0, 160).replace(/\s+/g, " ");
+  const url = `${SITE_URL}/baca/${article.slug}`;
   return {
     title: article.title,
-    description:
-      article.description ?? article.body.slice(0, 160).replace(/\s+/g, " "),
+    description,
+    openGraph: {
+      title: article.title,
+      description,
+      type: "article",
+      url,
+      images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: article.title,
+      description,
+      images: ["/og-image.png"],
+    },
   };
 }
 
@@ -62,6 +79,13 @@ export default async function BacaPage({
           </p>
         )}
 
+        <div className="mt-6">
+          <ShareButton
+            title={article.title}
+            url={`${SITE_URL}/baca/${article.slug}`}
+          />
+        </div>
+
         <div
           aria-hidden
           className="my-8 flex items-center gap-3 text-emerald-900/50"
@@ -78,6 +102,25 @@ export default async function BacaPage({
             {article.body}
           </div>
         )}
+
+        <section
+          aria-label="Bagikan bacaan ini"
+          className="mt-12 rounded-2xl border border-emerald-900/15 bg-emerald-50 px-6 py-8 text-center"
+        >
+          <h2 className="font-serif text-xl font-semibold text-emerald-950">
+            Bagikan bacaan ini
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-stone-600">
+            Semoga bermanfaat. Bagikan kepada keluarga dan jamaah pengajian —
+            semoga menjadi amal jariyah bersama.
+          </p>
+          <div className="mt-5 flex justify-center">
+            <ShareButton
+              title={article.title}
+              url={`${SITE_URL}/baca/${article.slug}`}
+            />
+          </div>
+        </section>
 
         <div
           aria-hidden

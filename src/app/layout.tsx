@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Amiri } from "next/font/google";
+import { SITE_URL } from "@/lib/site-url";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,9 +20,24 @@ const amiri = Amiri({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "Perpustakaan Digital Shalawat & Maulid",
   description:
     "Perpustakaan digital untuk membaca shalawat dan maulid secara gratis.",
+  openGraph: {
+    title: "Perpustakaan Digital Shalawat & Maulid",
+    description:
+      "Perpustakaan digital untuk membaca shalawat dan maulid secara gratis.",
+    type: "website",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Perpustakaan Digital Shalawat & Maulid",
+    description:
+      "Perpustakaan digital untuk membaca shalawat dan maulid secara gratis.",
+    images: ["/og-image.png"],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
