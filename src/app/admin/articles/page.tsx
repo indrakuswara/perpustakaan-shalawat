@@ -7,6 +7,7 @@ import {
   unpublishArticleAction,
   deleteArticleAction,
 } from "./actions";
+import DeleteArticleButton from "./DeleteArticleButton";
 
 const STATUS_LABEL: Record<ContentStatus, string> = {
   DRAFT: "Draft",
@@ -159,17 +160,11 @@ export default async function ArticlesPage({
                     </button>
                   </form>
                 )}
-                <form
-                  action={deleteArticleAction.bind(null, a.id)}
-                  className="inline"
-                >
-                  <button
-                    type="submit"
-                    className="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 transition hover:bg-red-50"
-                  >
-                    Hapus
-                  </button>
-                </form>
+                <DeleteArticleButton
+                  title={a.title}
+                  status={a.status}
+                  deleteAction={deleteArticleAction.bind(null, a.id)}
+                />
               </div>
             </div>
           ))}

@@ -9,6 +9,7 @@ import {
   unpublishArticleAction,
   deleteArticleAction,
 } from "../actions";
+import DeleteArticleButton from "../DeleteArticleButton";
 
 export default async function EditArticlePage({
   params,
@@ -87,17 +88,11 @@ export default async function EditArticlePage({
                   </button>
                 </form>
               )}
-              <form
-                action={deleteArticleAction.bind(null, article.id)}
-                className="inline"
-              >
-                <button
-                  type="submit"
-                  className="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 transition hover:bg-red-50"
-                >
-                  Hapus
-                </button>
-              </form>
+              <DeleteArticleButton
+                title={article.title}
+                status={article.status}
+                deleteAction={deleteArticleAction.bind(null, article.id)}
+              />
             </div>
           </div>
         </div>
