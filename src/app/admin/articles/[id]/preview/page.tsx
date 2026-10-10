@@ -42,7 +42,7 @@ export default async function ArticlePreviewPage({
             {article.title}
           </h1>
           {article.description && (
-            <p className="mt-3 text-stone-500 italic">{article.description}</p>
+            <p className="mt-3 text-stone-500 italic md:text-justify">{article.description}</p>
           )}
           <hr className="my-8 border-stone-200" />
           {article.blocks ? (

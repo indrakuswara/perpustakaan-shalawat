@@ -74,7 +74,7 @@ export default async function BacaPage({
           {article.title}
         </h1>
         {article.description && (
-          <p className="mt-4 font-serif text-lg text-stone-600 italic">
+          <p className="mt-4 font-serif text-lg text-stone-600 italic md:text-justify">
             {article.description}
           </p>
         )}
