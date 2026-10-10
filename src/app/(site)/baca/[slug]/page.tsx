@@ -5,6 +5,7 @@ import { getPublishedBySlug } from "@/lib/db";
 import { SITE_URL } from "@/lib/site-url";
 import ReaderView from "@/components/site/ReaderView";
 import ShareButton from "@/components/site/ShareButton";
+import PrintButton from "@/components/site/PrintButton";
 
 const TYPE_LABEL = { SHALAWAT: "Shalawat", MAULID: "Maulid" } as const;
 const TYPE_HREF = { SHALAWAT: "/shalawat", MAULID: "/maulid" } as const;
@@ -79,11 +80,12 @@ export default async function BacaPage({
           </p>
         )}
 
-        <div className="mt-6">
+        <div className="mt-6 flex flex-wrap gap-3">
           <ShareButton
             title={article.title}
             url={`${SITE_URL}/baca/${article.slug}`}
           />
+          <PrintButton slug={article.slug} />
         </div>
 
         <div
@@ -114,11 +116,12 @@ export default async function BacaPage({
             Semoga bermanfaat. Bagikan kepada keluarga dan jamaah pengajian —
             semoga menjadi amal jariyah bersama.
           </p>
-          <div className="mt-5 flex justify-center">
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
             <ShareButton
               title={article.title}
               url={`${SITE_URL}/baca/${article.slug}`}
             />
+            <PrintButton slug={article.slug} />
           </div>
         </section>
 
