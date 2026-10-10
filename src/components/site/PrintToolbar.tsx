@@ -29,9 +29,10 @@ export default function PrintToolbar({ slug }: { slug: string }) {
     <div className="bg-[#0b3d2e] text-emerald-50 print:hidden">
       <div className="mx-auto flex max-w-[210mm] flex-wrap items-center gap-3 px-4 py-3">
         <p className="min-w-0 flex-1 text-sm leading-snug">
-          Pratinjau cetak. Di dialog print, pilih{" "}
-          <strong>&ldquo;Simpan sebagai PDF&rdquo;</strong> — aktifkan juga opsi{" "}
-          <strong>&ldquo;Grafis latar&rdquo;</strong> agar warna template ikut tersimpan.
+          Pratinjau cetak. Di dialog print, pilih tujuan{" "}
+          <strong>&ldquo;Save as PDF&rdquo;</strong> (bukan printer &ldquo;Microsoft Print
+          To PDF&rdquo;), aktifkan <strong>&ldquo;Grafis latar&rdquo;</strong>, dan matikan{" "}
+          <strong>&ldquo;Header &amp; footer&rdquo;</strong> bawaan browser.
         </p>
         <button
           type="button"

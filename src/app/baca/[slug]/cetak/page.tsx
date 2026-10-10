@@ -39,7 +39,7 @@ export default async function CetakPage({
   const model = buildPrintModel({ blocks: article.blocks, body: article.body });
 
   return (
-    <div className="min-h-screen bg-[#fffefb]">
+    <div className="print-doc-shell bg-[#fffefb]">
       <PrintToolbar slug={article.slug} />
       <main className="print-doc mx-auto max-w-[210mm] px-[10mm] py-[10mm] sm:px-[15mm] print:px-0">
         <PrintView

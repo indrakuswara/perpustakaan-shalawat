@@ -39,7 +39,7 @@ section[id] {
 
 /* ---- Halaman cetak PDF (/baca/<slug>/cetak) ---- */
 
-@page cetak {
+@page {
   size: A4;
   margin: 14mm 15mm 18mm;
   @bottom-right {
@@ -51,7 +51,6 @@ section[id] {
 }
 
 .print-doc {
-  page: cetak;
   background: #fffefb;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
@@ -75,7 +74,22 @@ section[id] {
   display: none;
 }
 
+/* Pembungkus halaman cetak: setinggi layar di layar, tanpa tinggi
+   minimum saat print (min-height 100vh memicu halaman kosong ekstra
+   di beberapa engine print). */
+.print-doc-shell {
+  min-height: 100vh;
+}
+
 @media print {
+  body:has(.print-doc) {
+    min-height: 0 !important;
+  }
+
+  .print-doc-shell {
+    min-height: 0 !important;
+  }
+
   .print-footer {
     position: fixed;
     bottom: 0;
