@@ -39,7 +39,7 @@ section[id] {
 
 /* ---- Halaman cetak PDF (/baca/<slug>/cetak) ---- */
 
-@page {
+@page cetak {
   size: A4;
   margin: 14mm 15mm 18mm;
   @bottom-right {
@@ -51,6 +51,8 @@ section[id] {
 }
 
 .print-doc {
+  page: cetak;
+  background: #fffefb;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
 }

@@ -41,7 +41,7 @@ export default async function CetakPage({
   return (
     <div className="min-h-screen bg-[#fffefb]">
       <PrintToolbar slug={article.slug} />
-      <main className="print-doc mx-auto max-w-[210mm] px-[10mm] py-[10mm] sm:px-[15mm]">
+      <main className="print-doc mx-auto max-w-[210mm] px-[10mm] py-[10mm] sm:px-[15mm] print:px-0">
         <PrintView
           model={model}
           title={article.title}

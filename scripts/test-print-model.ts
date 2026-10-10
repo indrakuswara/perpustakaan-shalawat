@@ -60,5 +60,11 @@ ok("body kosong -> paragraphs kosong", m4.paragraphs.length === 0);
 const m5 = buildPrintModel({ blocks: { sections: [] }, body: "Cadangan body." });
 ok("blocks tanpa section -> fallback ke body", m5.sections.length === 0 && m5.paragraphs.length === 1);
 
+const m6 = buildPrintModel({ blocks: withEmpty2(), body: "Body cadangan satu.\n\nBody cadangan dua." });
+function withEmpty2(): ArticleBlocks {
+  return { sections: [{ id: "s1", title: "Hampa", units: [{ id: "u1", arab: "  " }] }] };
+}
+ok("blocks ada tapi semua unit hampa + body terisi -> fallback ke paragraf body", m6.sections.length === 0 && m6.paragraphs.length === 2);
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
