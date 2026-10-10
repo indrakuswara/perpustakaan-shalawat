@@ -36,3 +36,55 @@ html {
 section[id] {
   scroll-margin-top: 5.5rem;
 }
+
+/* ---- Halaman cetak PDF (/baca/<slug>/cetak) ---- */
+
+@page {
+  size: A4;
+  margin: 14mm 15mm 18mm;
+  @bottom-right {
+    content: "Halaman " counter(page) " dari " counter(pages);
+    font-family: Georgia, serif;
+    font-size: 8pt;
+    color: #78716c;
+  }
+}
+
+.print-doc {
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.print-card {
+  background: #fff;
+  border: 1px solid #e9e4d8;
+  border-left: 4px solid #0b3d2e;
+  border-radius: 6px;
+  padding: 14px 18px;
+  break-inside: avoid;
+}
+
+.print-section-head {
+  break-after: avoid;
+  break-inside: avoid;
+}
+
+.print-footer {
+  display: none;
+}
+
+@media print {
+  .print-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-top: 1px solid #e7d9ae;
+    padding-top: 8px;
+    font-size: 8pt;
+    color: #78716c;
+  }
+}
