@@ -37,6 +37,9 @@ const websiteJsonLd = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "Perpustakaan Digital Shalawat & Maulid",
+  verification: {
+    google: "kg6CkbauBZQYi7D1Lm0GfSzntsZKMu_813m8e3uvi64",
+  },
   description:
     "Perpustakaan digital untuk membaca shalawat dan maulid secara gratis.",
   openGraph: {
