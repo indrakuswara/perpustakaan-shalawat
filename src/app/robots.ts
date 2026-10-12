@@ -1,13 +1,8 @@
 import type { MetadataRoute } from "next";
-
-function baseUrl(): string {
-  return (
-    process.env.SITE_URL ?? "https://shalawat-lib-99.loca.lt"
-  ).replace(/\/$/, "");
-}
+import { SITE_URL } from "@/lib/site-url";
 
 export default function robots(): MetadataRoute.Robots {
-  const base = baseUrl();
+  const base = SITE_URL;
   return {
     rules: [
       {

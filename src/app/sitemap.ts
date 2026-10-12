@@ -1,14 +1,9 @@
 import type { MetadataRoute } from "next";
 import { listPublishedContents, parseDbDateTime } from "@/lib/db";
-
-function baseUrl(): string {
-  return (
-    process.env.SITE_URL ?? "https://shalawat-lib-99.loca.lt"
-  ).replace(/\/$/, "");
-}
+import { SITE_URL } from "@/lib/site-url";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = baseUrl();
+  const base = SITE_URL;
   const now = new Date();
   const urls: MetadataRoute.Sitemap = [
     { url: `${base}/`, lastModified: now, changeFrequency: "daily", priority: 1 },
