@@ -76,6 +76,7 @@ export async function publishArticleAction(id: string): Promise<void> {
   await publishContent(id);
   revalidatePath("/admin/articles");
   revalidatePath("/", "layout");
+  revalidatePath("/sitemap.xml");
   redirect("/admin/articles");
 }
 
@@ -84,6 +85,7 @@ export async function unpublishArticleAction(id: string): Promise<void> {
   await unpublishContent(id);
   revalidatePath("/admin/articles");
   revalidatePath("/", "layout");
+  revalidatePath("/sitemap.xml");
   redirect("/admin/articles");
 }
 
@@ -92,5 +94,6 @@ export async function deleteArticleAction(id: string): Promise<void> {
   await deleteContent(id);
   revalidatePath("/admin/articles");
   revalidatePath("/", "layout");
+  revalidatePath("/sitemap.xml");
   redirect("/admin/articles");
 }

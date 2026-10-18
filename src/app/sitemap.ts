@@ -2,6 +2,11 @@ import type { MetadataRoute } from "next";
 import { listPublishedContents, parseDbDateTime } from "@/lib/db";
 import { SITE_URL } from "@/lib/site-url";
 
+// Sitemap WAJIB digenerate ulang dari DB setiap request. Tanpa baris ini,
+// Next meng-cache output sitemap saat build — artikel yang dipublish sesudah
+// deploy terakhir tidak pernah masuk sitemap (kasus Lakum Busyro, Okt 2026).
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = SITE_URL;
   const now = new Date();
