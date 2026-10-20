@@ -5,6 +5,7 @@ const NAV = [
   { label: "Beranda", href: "/" },
   { label: "Shalawat", href: "/shalawat" },
   { label: "Maulid", href: "/maulid" },
+  { label: "Hadroh", href: "/hadroh" },
 ];
 
 export default function SiteHeader() {
