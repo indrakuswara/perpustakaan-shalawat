@@ -14,6 +14,9 @@ export type {
   ContentRow,
   ContentStatus,
   ContentType,
+  RequestFilter,
+  RequestInput,
+  RequestRow,
 } from "./db-types.ts";
 export { slugify, parseDbDateTime } from "./db-types.ts";
 
@@ -85,4 +88,41 @@ export async function deleteContent(id: string) {
 }
 export async function countContents() {
   return backend.countContents();
+}
+
+// --- Request repository (fitur request tanpa login) ---
+export async function createRequest(
+  input: Parameters<typeof backend.createRequest>[0],
+) {
+  return backend.createRequest(input);
+}
+export async function getRequestById(id: string) {
+  return backend.getRequestById(id);
+}
+export async function listRequests(
+  filter: Parameters<typeof backend.listRequests>[0] = {},
+) {
+  return backend.listRequests(filter);
+}
+export async function updateRequestStatus(
+  id: string,
+  status: Parameters<typeof backend.updateRequestStatus>[1],
+) {
+  return backend.updateRequestStatus(id, status);
+}
+export async function deleteRequest(id: string) {
+  return backend.deleteRequest(id);
+}
+export async function findPendingRequestDuplicate(
+  kind: Parameters<typeof backend.findPendingRequestDuplicate>[0],
+  titleNorm: string,
+  name: string,
+) {
+  return backend.findPendingRequestDuplicate(kind, titleNorm, name);
+}
+export async function listRequestHitTimes(ipHash: string, sinceIso: string) {
+  return backend.listRequestHitTimes(ipHash, sinceIso);
+}
+export async function recordRequestHit(ipHash: string, pruneBeforeIso: string) {
+  return backend.recordRequestHit(ipHash, pruneBeforeIso);
 }

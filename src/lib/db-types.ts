@@ -42,6 +42,34 @@ export interface ContentFilter {
   query?: string;
 }
 
+// ---- Request Shalawat & Maulid (fitur request tanpa login) ----
+// Tipe kind/status didefinisikan di requests.ts (logika murni fitur).
+
+import type { RequestKind, RequestStatus } from "./requests.ts";
+
+export interface RequestRow {
+  id: string;
+  kind: RequestKind;
+  name: string;
+  title: string;
+  titleNorm: string;
+  note: string | null;
+  status: RequestStatus;
+  createdAt: string;
+}
+
+export interface RequestInput {
+  kind: RequestKind;
+  name: string;
+  title: string;
+  note?: string | null;
+}
+
+export interface RequestFilter {
+  kind?: RequestKind;
+  status?: RequestStatus;
+}
+
 export function slugify(title: string): string {
   const base = title
     .toLowerCase()

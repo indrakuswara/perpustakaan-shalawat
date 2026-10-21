@@ -12,8 +12,13 @@ import type {
   ContentRow,
   ContentStatus,
   ContentType,
+  RequestFilter,
+  RequestInput,
+  RequestRow,
 } from "./db-types.ts";
 import { parseBlocksSafe, slugify } from "./db-types.ts";
+import type { RequestKind, RequestStatus } from "./requests.ts";
+import { normalizeTitle } from "./requests.ts";
 
 // --- Koneksi ---
 
@@ -66,6 +71,23 @@ async function ensureSchema(): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS idx_contents_status ON contents(status);
     CREATE INDEX IF NOT EXISTS idx_contents_type_status ON contents(type, status);
+    CREATE TABLE IF NOT EXISTS requests (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      name TEXT NOT NULL,
+      title TEXT NOT NULL,
+      title_norm TEXT NOT NULL,
+      note TEXT,
+      status TEXT NOT NULL DEFAULT 'baru',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status);
+    CREATE INDEX IF NOT EXISTS idx_requests_kind_status ON requests(kind, status);
+    CREATE TABLE IF NOT EXISTS request_hits (
+      ip_hash TEXT NOT NULL,
+      hit_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_request_hits_hash ON request_hits(ip_hash);
   `);
   // Migrasi ringan: tambah kolom blocks untuk DB yang dibuat sebelum fitur ini.
   await getPool().query(
@@ -366,4 +388,115 @@ export async function countContents(): Promise<{
     )
   )[0].n;
   return { total, published, drafts };
+}
+
+// --- Request repository (fitur request tanpa login) ---
+
+function mapRequest(r: Record<string, unknown>): RequestRow {
+  return {
+    id: String(r.id),
+    kind: r.kind as RequestKind,
+    name: String(r.name),
+    title: String(r.title),
+    titleNorm: String(r.title_norm),
+    note: r.note == null ? null : String(r.note),
+    status: r.status as RequestStatus,
+    createdAt: toISO(r.created_at),
+  };
+}
+
+export async function createRequest(input: RequestInput): Promise<RequestRow> {
+  if (input.kind !== "shalawat" && input.kind !== "maulid") {
+    throw new Error("Jenis request tidak valid");
+  }
+  const id = randomUUID();
+  await query(
+    `INSERT INTO requests (id, kind, name, title, title_norm, note)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [
+      id,
+      input.kind,
+      input.name,
+      input.title,
+      normalizeTitle(input.title),
+      input.note?.trim() || null,
+    ],
+  );
+  return (await getRequestById(id)) as RequestRow;
+}
+
+export async function getRequestById(id: string): Promise<RequestRow | null> {
+  const rows = await query<Record<string, unknown>>(
+    "SELECT * FROM requests WHERE id = $1",
+    [id],
+  );
+  return rows[0] ? mapRequest(rows[0]) : null;
+}
+
+export async function listRequests(
+  filter: RequestFilter = {},
+): Promise<RequestRow[]> {
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (filter.kind) {
+    params.push(filter.kind);
+    where.push(`kind = $${params.length}`);
+  }
+  if (filter.status) {
+    params.push(filter.status);
+    where.push(`status = $${params.length}`);
+  }
+  const sql =
+    "SELECT * FROM requests" +
+    (where.length ? ` WHERE ${where.join(" AND ")}` : "") +
+    " ORDER BY CASE WHEN status = 'baru' THEN 0 ELSE 1 END, created_at DESC";
+  const rows = await query<Record<string, unknown>>(sql, params);
+  return rows.map(mapRequest);
+}
+
+export async function updateRequestStatus(
+  id: string,
+  status: RequestStatus,
+): Promise<void> {
+  if (status !== "baru" && status !== "selesai" && status !== "ditolak") {
+    throw new Error("Status request tidak valid");
+  }
+  await query("UPDATE requests SET status = $1 WHERE id = $2", [status, id]);
+}
+
+export async function deleteRequest(id: string): Promise<void> {
+  await query("DELETE FROM requests WHERE id = $1", [id]);
+}
+
+export async function findPendingRequestDuplicate(
+  kind: RequestKind,
+  titleNorm: string,
+  name: string,
+): Promise<RequestRow | null> {
+  const rows = await query<Record<string, unknown>>(
+    `SELECT * FROM requests
+     WHERE kind = $1 AND title_norm = $2 AND status = 'baru' AND lower(name) = lower($3)
+     LIMIT 1`,
+    [kind, titleNorm, name],
+  );
+  return rows[0] ? mapRequest(rows[0]) : null;
+}
+
+export async function listRequestHitTimes(
+  ipHash: string,
+  sinceIso: string,
+): Promise<string[]> {
+  const rows = await query<{ hit_at: unknown }>(
+    "SELECT hit_at FROM request_hits WHERE ip_hash = $1 AND hit_at >= $2",
+    [ipHash, sinceIso],
+  );
+  return rows.map((r) => toISO(r.hit_at));
+}
+
+export async function recordRequestHit(
+  ipHash: string,
+  pruneBeforeIso: string,
+): Promise<void> {
+  await query("DELETE FROM request_hits WHERE hit_at < $1", [pruneBeforeIso]);
+  await query("INSERT INTO request_hits (ip_hash) VALUES ($1)", [ipHash]);
 }

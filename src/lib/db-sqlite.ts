@@ -16,8 +16,13 @@ import type {
   ContentRow,
   ContentStatus,
   ContentType,
+  RequestFilter,
+  RequestInput,
+  RequestRow,
 } from "./db-types.ts";
 import { parseBlocksSafe, slugify } from "./db-types.ts";
+import type { RequestKind, RequestStatus } from "./requests.ts";
+import { normalizeTitle } from "./requests.ts";
 
 function resolveDbPath(): string {
   const raw = process.env.DATABASE_URL ?? "file:./data/app.db";
@@ -50,6 +55,23 @@ function initSchema(db: DatabaseSync): void {
     );
     CREATE INDEX IF NOT EXISTS idx_contents_status ON contents(status);
     CREATE INDEX IF NOT EXISTS idx_contents_type_status ON contents(type, status);
+    CREATE TABLE IF NOT EXISTS requests (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      name TEXT NOT NULL,
+      title TEXT NOT NULL,
+      title_norm TEXT NOT NULL,
+      note TEXT,
+      status TEXT NOT NULL DEFAULT 'baru',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status);
+    CREATE INDEX IF NOT EXISTS idx_requests_kind_status ON requests(kind, status);
+    CREATE TABLE IF NOT EXISTS request_hits (
+      ip_hash TEXT NOT NULL,
+      hit_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_request_hits_hash ON request_hits(ip_hash);
   `);
   // Migrasi ringan: tambah kolom blocks untuk DB yang dibuat sebelum fitur ini.
   const hasBlocks = (
@@ -346,4 +368,114 @@ export function countContents(): {
     }
   ).n;
   return { total, published, drafts };
+}
+
+// --- Request repository (fitur request tanpa login) ---
+
+function mapRequest(row: unknown): RequestRow {
+  const r = row as Record<string, string>;
+  return {
+    id: r.id,
+    kind: r.kind as RequestKind,
+    name: r.name,
+    title: r.title,
+    titleNorm: r.title_norm,
+    note: r.note ?? null,
+    status: r.status as RequestStatus,
+    createdAt: r.created_at,
+  };
+}
+
+export function createRequest(input: RequestInput): RequestRow {
+  if (input.kind !== "shalawat" && input.kind !== "maulid") {
+    throw new Error("Jenis request tidak valid");
+  }
+  const db = getDb();
+  const id = randomUUID();
+  db.prepare(
+    `INSERT INTO requests (id, kind, name, title, title_norm, note)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    input.kind,
+    input.name,
+    input.title,
+    normalizeTitle(input.title),
+    input.note?.trim() || null,
+  );
+  return getRequestById(id) as RequestRow;
+}
+
+export function getRequestById(id: string): RequestRow | null {
+  const row = getDb().prepare("SELECT * FROM requests WHERE id = ?").get(id);
+  return row ? mapRequest(row) : null;
+}
+
+export function listRequests(filter: RequestFilter = {}): RequestRow[] {
+  const where: string[] = [];
+  const params: string[] = [];
+  if (filter.kind) {
+    where.push("kind = ?");
+    params.push(filter.kind);
+  }
+  if (filter.status) {
+    where.push("status = ?");
+    params.push(filter.status);
+  }
+  const sql =
+    "SELECT * FROM requests" +
+    (where.length ? ` WHERE ${where.join(" AND ")}` : "") +
+    " ORDER BY CASE WHEN status = 'baru' THEN 0 ELSE 1 END, created_at DESC";
+  const rows = getDb().prepare(sql).all(...params);
+  return (rows as unknown[]).map(mapRequest);
+}
+
+export function updateRequestStatus(id: string, status: RequestStatus): void {
+  if (status !== "baru" && status !== "selesai" && status !== "ditolak") {
+    throw new Error("Status request tidak valid");
+  }
+  getDb().prepare("UPDATE requests SET status = ? WHERE id = ?").run(status, id);
+}
+
+export function deleteRequest(id: string): void {
+  getDb().prepare("DELETE FROM requests WHERE id = ?").run(id);
+}
+
+// Request yang sama persis (jenis + judul ternormalisasi + nama sama)
+// yang masih menunggu di antrian — untuk menolak duplikat sopan.
+export function findPendingRequestDuplicate(
+  kind: RequestKind,
+  titleNorm: string,
+  name: string,
+): RequestRow | null {
+  const row = getDb()
+    .prepare(
+      `SELECT * FROM requests
+       WHERE kind = ? AND title_norm = ? AND status = 'baru' AND lower(name) = lower(?)
+       LIMIT 1`,
+    )
+    .get(kind, titleNorm, name);
+  return row ? mapRequest(row) : null;
+}
+
+// Timestamp hit kirim untuk satu hash IP sejak waktu tertentu (ISO).
+// Format SQLite "YYYY-MM-DD HH:MM:SS" (UTC) dibandingkan sebagai teks —
+// urutan leksikografisnya sama dengan urutan kronologis.
+export function listRequestHitTimes(ipHash: string, sinceIso: string): string[] {
+  const since = sinceIso.replace("T", " ").slice(0, 19);
+  const rows = getDb()
+    .prepare(
+      "SELECT hit_at FROM request_hits WHERE ip_hash = ? AND hit_at >= ?",
+    )
+    .all(ipHash, since) as { hit_at: string }[];
+  return rows.map((r) => r.hit_at);
+}
+
+// Catat satu hit kirim; sekalian bersihkan hit lama di luar jendela
+// (pembersihan oportunistik, spec §8).
+export function recordRequestHit(ipHash: string, pruneBeforeIso: string): void {
+  const prune = pruneBeforeIso.replace("T", " ").slice(0, 19);
+  const db = getDb();
+  db.prepare("DELETE FROM request_hits WHERE hit_at < ?").run(prune);
+  db.prepare("INSERT INTO request_hits (ip_hash) VALUES (?)").run(ipHash);
 }

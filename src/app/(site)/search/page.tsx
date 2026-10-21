@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { searchPublishedContents } from "@/lib/db";
 import ArticleCard from "@/components/site/ArticleCard";
 import SearchForm from "@/components/site/SearchForm";
@@ -32,9 +33,20 @@ export default async function SearchPage({
           bacaan.
         </p>
       ) : results.length === 0 ? (
-        <p className="mt-8 rounded-2xl border border-dashed border-stone-300 bg-white/60 p-10 text-center text-sm text-stone-600">
-          Tidak ada hasil untuk “{query}”. Coba kata kunci lain.
-        </p>
+        <div className="mt-8 rounded-2xl border border-dashed border-stone-300 bg-white/60 p-10 text-center">
+          <p className="text-sm text-stone-600">
+            Tidak ada hasil untuk “{query}”. Coba kata kunci lain.
+          </p>
+          <p className="mt-3 text-sm text-stone-600">
+            Tidak ketemu?{" "}
+            <Link
+              href="/request-shalawat"
+              className="font-medium text-emerald-900 underline decoration-emerald-300 underline-offset-2 transition hover:decoration-emerald-700"
+            >
+              Request shalawat ini
+            </Link>
+          </p>
+        </div>
       ) : (
         <>
           <p className="mt-8 text-sm text-stone-600">

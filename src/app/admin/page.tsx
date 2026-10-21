@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { countContents } from "@/lib/db";
+import { countContents, listRequests } from "@/lib/db";
 import { getCurrentAdmin } from "@/lib/auth";
 import { logoutAction } from "./login/actions";
 
@@ -11,6 +11,7 @@ export default async function AdminDashboardPage() {
   }
 
   const { total, published, drafts } = await countContents();
+  const newRequests = (await listRequests({ status: "baru" })).length;
 
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-10">
@@ -60,6 +61,13 @@ export default async function AdminDashboardPage() {
             className="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
           >
             + Tulis artikel
+          </Link>
+          <Link
+            href="/admin/requests"
+            className="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+          >
+            Request masuk
+            {newRequests > 0 ? ` (${newRequests} baru)` : ""}
           </Link>
         </div>
       </div>
