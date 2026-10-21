@@ -5,6 +5,8 @@ import {
   SECTIONS,
   TRACKS,
   sectionSteps,
+  isTrackAudible,
+  advanceUrutan,
   type Hit,
   type SectionId,
   type TrackDef,
@@ -24,12 +26,11 @@ type SampleKey = keyof typeof SAMPLE_URLS;
 type Mode = "loop" | "urutan";
 
 const CYCLE_BEATS = 4;
-const CYCLES_PER_SECTION = 2; // mode urutan: tiap bagian 2 siklus
-const SECTION_ORDER: SectionId[] = ["dasar", "naik", "turun"];
 
 interface ScheduledCycle {
   start: number;
   section: SectionId;
+  dur: number;
 }
 
 export default function HadrohPlayer() {
@@ -49,6 +50,8 @@ export default function HadrohPlayer() {
   const buffersRef = useRef<Partial<Record<SampleKey, AudioBuffer>>>({});
   const timerRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
+  const stopTimeoutRef = useRef<number | null>(null);
+  const sessionRef = useRef(0);
   const nextCycleTimeRef = useRef(0);
   const cycleCountRef = useRef(0);
   const sectionRef = useRef<SectionId>("dasar");
@@ -68,13 +71,10 @@ export default function HadrohPlayer() {
     []
   );
 
-  const audible = useCallback((trackId: string) => {
-    const s = soloRef.current;
-    const m = mutedRef.current;
-    if (m.has(trackId)) return false;
-    if (s.size > 0) return s.has(trackId);
-    return true;
-  }, []);
+  const audible = useCallback(
+    (trackId: string) => isTrackAudible(soloRef.current, mutedRef.current, trackId),
+    []
+  );
 
   const playHit = useCallback(
     (track: TrackDef, hit: Hit, when: number) => {
@@ -135,24 +135,40 @@ export default function HadrohPlayer() {
           if (s.hit) playHit(track, s.hit, start + i * stepDur);
         });
       }
-      queueRef.current.push({ start, section: sectionId });
+      queueRef.current.push({ start, section: sectionId, dur });
     },
     [audible, cycleDuration, playHit]
   );
 
-  const stop = useCallback(() => {
+  const clearTimers = useCallback(() => {
     if (timerRef.current) window.clearInterval(timerRef.current);
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (stopTimeoutRef.current) window.clearTimeout(stopTimeoutRef.current);
     timerRef.current = null;
     rafRef.current = null;
+    stopTimeoutRef.current = null;
+  }, []);
+
+  const stop = useCallback(() => {
+    // Catatan: pukulan yang sudah terjadwal (≤0,15 dtk ke depan) tidak bisa
+    // dibatalkan — AudioBufferSource bersifat fire-and-forget — jadi sisa
+    // bunyi sangat pendek masih terdengar sesudah stop. Diterima untuk
+    // alat latihan.
+    clearTimers();
     queueRef.current = [];
     displayCycleRef.current = null;
     setPlaying(false);
     setActiveSteps({});
-  }, []);
+  }, [clearTimers]);
 
   const start = useCallback(
     async (withPickup: boolean, startSection: SectionId) => {
+      // Penjaga re-entrancy: start kedua (klik ganda, ganti bagian di
+      // tengah muat) harus membunuh sesi lama dulu — interval/rAF yang
+      // bocor tidak akan pernah bisa dibersihkan stop(). Token sesi
+      // menutup celah balapan selama fase muat async di bawah.
+      clearTimers();
+      const mySession = ++sessionRef.current;
       const AC: typeof AudioContext | undefined =
         window.AudioContext ??
         (window as unknown as { webkitAudioContext?: typeof AudioContext })
@@ -173,12 +189,14 @@ export default function HadrohPlayer() {
       // akan running segera setelah gestur klik diproses.
       void ctx.resume().catch(() => undefined);
 
-      // Muat sampel (sekali saja; kegagalan bass jatuh ke dung).
-      if (!buffersRef.current.dung) {
+      // Muat sampel yang belum ada (per berkas, supaya kegagalan parsial
+      // bisa dicoba lagi lain kali; kegagalan bass jatuh ke dung).
+      if (!buffersRef.current.dung || !buffersRef.current.tek) {
         setLoading(true);
         setLoadError(null);
         try {
           const load = async (key: SampleKey) => {
+            if (buffersRef.current[key]) return;
             const res = await fetch(SAMPLE_URLS[key]);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const raw = await res.arrayBuffer();
@@ -199,6 +217,9 @@ export default function HadrohPlayer() {
         setLoading(false);
       }
 
+      // Sesi ini sudah digantikan start() yang lebih baru selama memuat.
+      if (sessionRef.current !== mySession) return;
+
       const t0 = ctx.currentTime + 0.08;
       if (withPickup) {
         for (const track of TRACKS) {
@@ -218,28 +239,41 @@ export default function HadrohPlayer() {
       timerRef.current = window.setInterval(() => {
         const c = ctxRef.current;
         if (!c) return;
+        // Interval bisa tertidur lama (HP tidur, tab disembunyikan).
+        // Jangan kejar ketertinggalan — jadwalkan ulang dari sekarang,
+        // kalau tidak semua siklus yang terlewat berbunyi bertumpuk.
+        if (nextCycleTimeRef.current < c.currentTime - 0.05) {
+          nextCycleTimeRef.current = c.currentTime + 0.05;
+          queueRef.current = [];
+          displayCycleRef.current = null;
+        }
         while (nextCycleTimeRef.current < c.currentTime + 0.15) {
           scheduleCycle(sectionRef.current, nextCycleTimeRef.current);
           nextCycleTimeRef.current += cycleDuration();
           if (modeRef.current === "urutan") {
             cycleCountRef.current += 1;
-            if (cycleCountRef.current >= CYCLES_PER_SECTION) {
-              cycleCountRef.current = 0;
-              const idx = SECTION_ORDER.indexOf(sectionRef.current);
-              if (idx >= SECTION_ORDER.length - 1) {
-                // Bagian terakhir selesai dijadwalkan: hentikan setelah
-                // siklus terakhir berbunyi (timer dibersihkan di rAF).
-                sectionRef.current = SECTION_ORDER[0];
-                const lastStart = nextCycleTimeRef.current - cycleDuration();
-                window.setTimeout(
-                  () => stop(),
-                  Math.max(0, (lastStart + cycleDuration() - c.currentTime) * 1000)
-                );
-                if (timerRef.current) window.clearInterval(timerRef.current);
-                timerRef.current = null;
-                break;
-              }
-              sectionRef.current = SECTION_ORDER[idx + 1];
+            const adv = advanceUrutan(
+              sectionRef.current,
+              cycleCountRef.current
+            );
+            cycleCountRef.current = adv.cycles;
+            sectionRef.current = adv.section;
+            if (adv.finished) {
+              // Bagian terakhir selesai dijadwalkan: berhenti tepat
+              // sesudah siklus terakhirnya berbunyi. ID timeout SIMPAN —
+              // stop()/start() lain harus bisa membatalkannya, kalau
+              // tidak sesi putar berikutnya bisa dimatikan timer basi.
+              const lastStart = nextCycleTimeRef.current - cycleDuration();
+              stopTimeoutRef.current = window.setTimeout(
+                () => stop(),
+                Math.max(
+                  0,
+                  (lastStart + cycleDuration() - c.currentTime) * 1000
+                )
+              );
+              if (timerRef.current) window.clearInterval(timerRef.current);
+              timerRef.current = null;
+              break;
             }
           }
         }
@@ -257,7 +291,7 @@ export default function HadrohPlayer() {
           }
           const dc = displayCycleRef.current;
           if (dc) {
-            const progress = (now - dc.start) / cycleDuration();
+            const progress = (now - dc.start) / dc.dur;
             if (progress >= 0 && progress < 1) {
               setActiveSection((prev) =>
                 prev === dc.section ? prev : dc.section
@@ -282,20 +316,16 @@ export default function HadrohPlayer() {
       };
       rafRef.current = requestAnimationFrame(tick);
     },
-    [audible, cycleDuration, playHit, stop]
+    [audible, clearTimers, cycleDuration, playHit, stop]
   );
 
   // Ganti bagian: bila sedang memutar, mulai ulang dari bagian pilihan
-  // (tanpa pukulan pembuka).
+  // (tanpa pukulan pembuka). start() sendiri membersihkan sesi lama.
   const pickSection = useCallback(
     (id: SectionId) => {
       setSection(id);
       sectionRef.current = id;
       if (playing) {
-        if (timerRef.current) window.clearInterval(timerRef.current);
-        if (rafRef.current) cancelAnimationFrame(rafRef.current);
-        timerRef.current = null;
-        rafRef.current = null;
         setPlaying(false);
         setActiveSteps({});
         void start(false, id);
@@ -306,11 +336,11 @@ export default function HadrohPlayer() {
 
   useEffect(() => {
     return () => {
-      if (timerRef.current) window.clearInterval(timerRef.current);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      sessionRef.current += 1; // batalkan start() yang masih memuat
+      clearTimers();
       void ctxRef.current?.close().catch(() => undefined);
     };
-  }, []);
+  }, [clearTimers]);
 
   const toggleIn = (
     setter: React.Dispatch<React.SetStateAction<Set<string>>>,
@@ -323,17 +353,21 @@ export default function HadrohPlayer() {
       return next;
     });
 
+  // Saat memutar, grid mengikuti bagian yang SEDANG BERBUNYI (di mode
+  // urutan bagian berjalan sendiri); saat berhenti, mengikuti pilihan.
+  const displaySection = playing ? activeSection : section;
+
   return (
     <div>
       {/* Pilihan bagian */}
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Bagian pukulan">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Bagian pukulan">
         {SECTIONS.map((s) => (
           <button
             key={s.id}
-            role="tab"
-            aria-selected={section === s.id}
+            aria-pressed={section === s.id}
+            disabled={loading}
             onClick={() => pickSection(s.id)}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+            className={`rounded-full px-4 py-2 text-sm font-medium transition disabled:opacity-50 ${
               section === s.id
                 ? "bg-[#0b3d2e] text-white"
                 : "border border-[#e9e4d8] bg-white text-stone-600 hover:border-[#0b3d2e]/40 hover:text-[#0b3d2e]"
@@ -410,7 +444,7 @@ export default function HadrohPlayer() {
       {/* Track */}
       <div className="mt-4 space-y-3">
         {TRACKS.map((track) => {
-          const steps = sectionSteps(track, section);
+          const steps = sectionSteps(track, displaySection);
           const active = activeSteps[track.id];
           const isSolo = solo.has(track.id);
           const isMuted = muted.has(track.id);
@@ -433,7 +467,7 @@ export default function HadrohPlayer() {
                 <div className="flex items-center gap-2">
                   <span className="hidden font-mono text-[11px] text-stone-400 sm:block">
                     {track.pickup ? "D) " : ""}
-                    {track.sections[section]}
+                    {track.sections[displaySection]}
                   </span>
                   <button
                     onClick={() => toggleIn(setSolo, track.id)}
@@ -465,7 +499,7 @@ export default function HadrohPlayer() {
                 data-track-grid={track.id}
               >
                 {steps.map((s, i) => {
-                  const isActive = playing && activeSection === section && active === i;
+                  const isActive = playing && active === i;
                   return (
                     <span
                       key={i}

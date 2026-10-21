@@ -14,8 +14,11 @@
 import {
   TRACKS,
   SECTIONS,
+  URUTAN_CYCLES_PER_SECTION,
   parseRumus,
   sectionSteps,
+  isTrackAudible,
+  advanceUrutan,
   type TrackDef,
 } from "../src/lib/hadroh-patterns.ts";
 
@@ -136,8 +139,10 @@ function throws(name: string, fn: () => unknown) {
 
   // Cross-check dua dokumen: [pickup, ...langkah] golong dasar harus sama
   // persis dengan pola 1 dokumen Nuqthoh.
-  const symbols = (t: TrackDef, s: "dasar") =>
-    [t.pickup, ...sectionSteps(t, s).map((st) => st.hit ?? ".")].join(" ");
+  const symbols = (t: TrackDef, s: "dasar" | "naik" | "turun") =>
+    [t.pickup, ...sectionSteps(t, s).map((st) => st.hit ?? ".")]
+      .filter((x) => x !== null)
+      .join(" ");
   eq(
     "cross-check golong-wedokan dasar = Nuqthoh Nggolong Nganai 1",
     symbols(byId("golong-wedokan"), "dasar"),
@@ -148,6 +153,93 @@ function throws(name: string, fn: () => unknown) {
     symbols(byId("golong-lanangan"), "dasar"),
     "D T . D D D . T D"
   );
+
+  // Kunci SEMUA baris pola kata-per-kata terhadap transkripsi dokumen
+  // (temuan reviewer: panjang + set simbol saja tidak cukup — slip yang
+  // panjangnya sama harus ikut ketahuan).
+  const EXPECTED: Record<string, Record<string, string>> = {
+    lanangan: {
+      dasar: "D . T T D D D T T T D",
+      naik: "D . T T T T D T T T D",
+      turun: "D . D D T T D T T T D",
+    },
+    wedokan: {
+      dasar: "D T T . D D D T . T D",
+      naik: "D T T . T T D T . T D",
+      turun: "D D D . T T D T . T D",
+    },
+    "golong-lanangan": {
+      dasar: "D T . D D D . T D",
+      naik: "D T . T T D . T D",
+      turun: "D D . T T D . T D",
+    },
+    "golong-wedokan": {
+      dasar: "D . T . D D T . D",
+      naik: "D . T . T D T . D",
+      turun: "D . D . T D T . D",
+    },
+    bass: {
+      dasar: "D . . D . d d . D",
+      naik: "D . . D . d d . D",
+      turun: "D . . D . d d . D",
+    },
+  };
+  for (const t of TRACKS) {
+    for (const s of SECTIONS) {
+      eq(
+        `baris persis ${t.id}/${s.id}`,
+        symbols(t, s.id),
+        EXPECTED[t.id][s.id]
+      );
+    }
+  }
+
+  // Bendera cepat menempel di langkah yang tepat (Lanangan Dasar:
+  // TT, DD, TT pada indeks 1-2, 3-4, 6-7).
+  eq(
+    "indeks cepat lanangan/dasar",
+    sectionSteps(byId("lanangan"), "dasar")
+      .map((st, i) => (st.fast ? i : -1))
+      .filter((i) => i >= 0),
+    [1, 2, 3, 4, 6, 7]
+  );
+}
+
+// ---- helper pemutar (aturan murni yang dipakai komponen) ----
+{
+  const S = (...ids: string[]) => new Set(ids);
+  eq("audible: tanpa solo/mute semua bunyi", isTrackAudible(S(), S(), "bass"), true);
+  eq("audible: solo aktif, track di-solo", isTrackAudible(S("bass"), S(), "bass"), true);
+  eq("audible: solo aktif, track lain senyap", isTrackAudible(S("bass"), S(), "lanangan"), false);
+  eq("audible: mute menang atas solo", isTrackAudible(S("bass"), S("bass"), "bass"), false);
+  eq("audible: mute track lain tak berpengaruh", isTrackAudible(S(), S("bass"), "lanangan"), true);
+
+  eq("urutan: 2 siklus per bagian", URUTAN_CYCLES_PER_SECTION, 2);
+  eq("urutan: dasar siklus 1 tetap", advanceUrutan("dasar", 1), {
+    section: "dasar",
+    cycles: 1,
+    finished: false,
+  });
+  eq("urutan: dasar siklus 2 → naik", advanceUrutan("dasar", 2), {
+    section: "naik",
+    cycles: 0,
+    finished: false,
+  });
+  eq("urutan: naik siklus 2 → turun", advanceUrutan("naik", 2), {
+    section: "turun",
+    cycles: 0,
+    finished: false,
+  });
+  eq("urutan: turun siklus 1 tetap", advanceUrutan("turun", 1), {
+    section: "turun",
+    cycles: 1,
+    finished: false,
+  });
+  eq("urutan: turun siklus 2 selesai", advanceUrutan("turun", 2), {
+    section: "turun",
+    cycles: 2,
+    finished: true,
+  });
 }
 
 console.log(`\n${passed} lulus, ${failed} gagal`);

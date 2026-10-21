@@ -157,3 +157,49 @@ export function parseRumus(raw: string): Step[] {
 export function sectionSteps(track: TrackDef, section: SectionId): Step[] {
   return parseRumus(track.sections[section]);
 }
+
+// ---- Aturan murni pemutar (dipakai komponen React, dites terpisah) ----
+
+/**
+ * Apakah satu track berbunyi? Mute selalu menang; bila ada solo aktif,
+ * hanya track yang di-solo (dan tidak di-mute) yang berbunyi.
+ */
+export function isTrackAudible(
+  solo: ReadonlySet<string>,
+  muted: ReadonlySet<string>,
+  trackId: string
+): boolean {
+  if (muted.has(trackId)) return false;
+  if (solo.size > 0) return solo.has(trackId);
+  return true;
+}
+
+/** Urutan bagian pada mode "urutan penuh" dan siklus per bagiannya. */
+export const URUTAN_ORDER: SectionId[] = ["dasar", "naik", "turun"];
+export const URUTAN_CYCLES_PER_SECTION = 2;
+
+export interface UrutanAdvance {
+  section: SectionId;
+  cycles: number;
+  finished: boolean;
+}
+
+/**
+ * Langkah progresi mode urutan setelah satu siklus selesai.
+ * `cyclesDone` = jumlah siklus bagian `current` yang SUDAH selesai
+ * (termasuk yang baru berakhir). Di bawah ambang → tetap; mencapai
+ * ambang → pindah ke bagian berikut; bagian terakhir → finished.
+ */
+export function advanceUrutan(
+  current: SectionId,
+  cyclesDone: number
+): UrutanAdvance {
+  if (cyclesDone < URUTAN_CYCLES_PER_SECTION) {
+    return { section: current, cycles: cyclesDone, finished: false };
+  }
+  const idx = URUTAN_ORDER.indexOf(current);
+  if (idx >= URUTAN_ORDER.length - 1) {
+    return { section: current, cycles: cyclesDone, finished: true };
+  }
+  return { section: URUTAN_ORDER[idx + 1], cycles: 0, finished: false };
+}
