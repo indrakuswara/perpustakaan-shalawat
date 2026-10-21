@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import HadrohPlayer from "./HadrohPlayer";
 
 export const metadata: Metadata = {
@@ -8,6 +9,13 @@ export const metadata: Metadata = {
 };
 
 export default function HadrohPage() {
+  // FITUR DITIDURKAN (keputusan Juple, 21 Okt 2026): halaman, pemutar,
+  // data pola, dan test sengaja DIPERTAHANKAN di repo sebagai bahan
+  // brainstorm pendewasaan fitur. Jangan hapus — untuk menghidupkan
+  // lagi, hapus baris notFound() ini dan kembalikan entri "Hadroh"
+  // di SiteHeader.
+  notFound();
+
   return (
     <main className="bg-[#fffefb]">
       <div className="mx-auto max-w-5xl px-4 py-10 md:py-14">
