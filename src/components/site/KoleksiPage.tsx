@@ -46,9 +46,7 @@ export default async function KoleksiPage({
         <p className="text-sm font-medium text-stone-800">
           Belum menemukan yang kamu cari?
         </p>
-        <p className="mt-1 text-sm text-stone-600">
-          Usulkan judulnya — tanpa perlu daftar atau login.
-        </p>
+        <p className="mt-1 text-sm text-stone-600">Usulkan judulnya</p>
         <Link
           href={type === "SHALAWAT" ? "/request-shalawat" : "/request-maulid"}
           className="mt-4 inline-block rounded-lg bg-emerald-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-950"

@@ -18,18 +18,13 @@ export default function RequestShalawatPage() {
       </h1>
       <p className="mt-3 max-w-xl leading-relaxed text-stone-600">
         Belum menemukan shalawat yang kamu cari di koleksi kami? Sampaikan
-        lewat formulir ini — tanpa perlu daftar atau login. Setiap request
-        ditinjau manual; tidak semua request bisa kami penuhi, tapi
-        semuanya kami baca.
+        lewat formulir ini. Setiap request ditinjau manual, tidak semua
+        request bisa kami penuhi, tapi semuanya kami baca.
       </p>
 
       <div className="mt-8 max-w-xl rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
         <RequestForm kind="shalawat" />
       </div>
-      <p className="mt-4 max-w-xl text-sm text-stone-500">
-        Kami tidak meminta email atau nomor HP — cukup nama panggilan dan
-        judulnya saja.
-      </p>
     </main>
   );
 }
