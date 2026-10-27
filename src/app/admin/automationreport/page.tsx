@@ -114,6 +114,43 @@ export default async function AutomationReportPage() {
                     ))}
                   </ul>
                 )}
+                {run.tests.length > 0 ? (
+                  <details className="mt-4">
+                    <summary className="cursor-pointer text-sm font-medium text-stone-700">
+                      Lihat {run.tests.length} tes
+                    </summary>
+                    <ul className="mt-2 space-y-1">
+                      {run.tests.map((t, index) => (
+                        <li
+                          key={`${index}-${t.title}-${t.status}`}
+                          className="flex items-start gap-2 text-sm text-stone-700"
+                        >
+                          <span
+                            className={
+                              t.status === "passed"
+                                ? "font-medium text-emerald-800"
+                                : t.status === "failed"
+                                  ? "font-medium text-red-700"
+                                  : "text-stone-500"
+                            }
+                          >
+                            {t.status === "passed"
+                              ? "Lolos"
+                              : t.status === "failed"
+                                ? "Gagal"
+                                : "Dilewati"}
+                          </span>
+                          <span>{t.title}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : (
+                  <p className="mt-3 text-sm text-stone-500">
+                    Run ini tidak punya detail per-tes (run lama, sebelum
+                    daftar per-tes ditambahkan).
+                  </p>
+                )}
               </article>
             ))}
           </div>

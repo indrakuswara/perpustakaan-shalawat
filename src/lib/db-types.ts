@@ -72,6 +72,12 @@ export interface RequestInput {
 
 export type AutomationRunStatus = "passed" | "failed";
 export type AutomationCleanupStatus = "clean" | "leftover" | "unknown";
+export type AutomationTestStatus = "passed" | "failed" | "skipped";
+
+export interface AutomationTestResult {
+  title: string;
+  status: AutomationTestStatus;
+}
 
 export interface AutomationRun {
   runKey: string;
@@ -85,6 +91,7 @@ export interface AutomationRun {
   failed: number;
   skipped: number;
   failedTests: string[];
+  tests: AutomationTestResult[];
   cleanupStatus: AutomationCleanupStatus;
   createdAt: string;
 }
@@ -101,6 +108,7 @@ export interface AutomationRunInput {
   failed: number;
   skipped: number;
   failedTests: string[];
+  tests: AutomationTestResult[];
   cleanupStatus: AutomationCleanupStatus;
 }
 

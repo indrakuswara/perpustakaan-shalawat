@@ -11,6 +11,8 @@ import type {
   AutomationRun,
   AutomationRunInput,
   AutomationRunStatus,
+  AutomationTestResult,
+  AutomationTestStatus,
   ContentFilter,
   ContentInput,
   ContentRow,
@@ -134,6 +136,7 @@ async function createSchemaTables(): Promise<void> {
       failed INTEGER NOT NULL DEFAULT 0,
       skipped INTEGER NOT NULL DEFAULT 0,
       failed_tests TEXT NOT NULL DEFAULT '[]',
+      tests TEXT NOT NULL DEFAULT '[]',
       cleanup_status TEXT NOT NULL DEFAULT 'unknown',
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
@@ -142,6 +145,11 @@ async function createSchemaTables(): Promise<void> {
   // Migrasi ringan: tambah kolom blocks untuk DB yang dibuat sebelum fitur ini.
   await getPool().query(
     "ALTER TABLE contents ADD COLUMN IF NOT EXISTS blocks JSONB",
+  );
+  // Migrasi ringan: tambah kolom tests untuk tabel automation_runs
+  // yang dibuat sebelum daftar per-tes ada.
+  await getPool().query(
+    "ALTER TABLE automation_runs ADD COLUMN IF NOT EXISTS tests TEXT NOT NULL DEFAULT '[]'",
   );
   globalForPool.pgSchemaReady = true;
 }
@@ -553,6 +561,31 @@ export async function recordRequestHit(
 
 // --- Laporan automation (halaman admin tersembunyi) ---
 
+function parseAutomationTests(raw: unknown): AutomationTestResult[] {
+  try {
+    const parsed: unknown =
+      typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (v): v is Record<string, unknown> =>
+          typeof v === "object" && v !== null,
+      )
+      .map((v) => ({
+        title: typeof v.title === "string" ? v.title : "",
+        // Fail closed: an unknown or corrupt status never displays
+        // as passed.
+        status:
+          v.status === "passed" || v.status === "skipped"
+            ? (v.status as AutomationTestStatus)
+            : "failed",
+      }))
+      .filter((v) => v.title.length > 0);
+  } catch {
+    return [];
+  }
+}
+
 function mapAutomationRun(r: Record<string, unknown>): AutomationRun {
   let failedTests: string[] = [];
   try {
@@ -578,6 +611,7 @@ function mapAutomationRun(r: Record<string, unknown>): AutomationRun {
     failed: Number(r.failed),
     skipped: Number(r.skipped),
     failedTests,
+    tests: parseAutomationTests(r.tests),
     cleanupStatus: r.cleanup_status as AutomationCleanupStatus,
     createdAt: toISO(r.created_at),
   };
@@ -589,8 +623,8 @@ export async function createAutomationRun(
   const rows = await query<Record<string, unknown>>(
     `INSERT INTO automation_runs
        (run_key, workflow, trigger, status, commit_sha, actor, actions_url,
-        passed, failed, skipped, failed_tests, cleanup_status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        passed, failed, skipped, failed_tests, tests, cleanup_status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
      ON CONFLICT (run_key) DO UPDATE SET
        workflow = EXCLUDED.workflow,
        trigger = EXCLUDED.trigger,
@@ -602,6 +636,7 @@ export async function createAutomationRun(
        failed = EXCLUDED.failed,
        skipped = EXCLUDED.skipped,
        failed_tests = EXCLUDED.failed_tests,
+       tests = EXCLUDED.tests,
        cleanup_status = EXCLUDED.cleanup_status,
        created_at = now()
      RETURNING *`,
@@ -617,6 +652,7 @@ export async function createAutomationRun(
       input.failed,
       input.skipped,
       JSON.stringify(input.failedTests),
+      JSON.stringify(input.tests ?? []),
       input.cleanupStatus,
     ],
   );

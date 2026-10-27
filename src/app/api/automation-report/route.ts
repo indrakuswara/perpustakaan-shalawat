@@ -4,6 +4,7 @@ import { createAutomationRun } from "@/lib/db";
 import type {
   AutomationCleanupStatus,
   AutomationRunStatus,
+  AutomationTestResult,
 } from "@/lib/db-types";
 
 export const dynamic = "force-dynamic";
@@ -70,6 +71,32 @@ export async function POST(req: Request): Promise<NextResponse> {
   ) {
     return NextResponse.json({ error: "cleanupStatus tidak valid." }, { status: 400 });
   }
+  // Daftar per-tes opsional (script lama tidak mengirimnya) dan
+  // default-nya kosong; kalau dikirim, setiap entrinya divalidasi.
+  let tests: AutomationTestResult[] = [];
+  if (b.tests !== undefined) {
+    if (
+      !Array.isArray(b.tests) ||
+      b.tests.length > 100 ||
+      !b.tests.every(
+        (t): t is Record<string, unknown> =>
+          typeof t === "object" &&
+          t !== null &&
+          typeof t.title === "string" &&
+          t.title.length > 0 &&
+          t.title.length <= 300 &&
+          (t.status === "passed" ||
+            t.status === "failed" ||
+            t.status === "skipped"),
+      )
+    ) {
+      return NextResponse.json({ error: "Payload tidak valid." }, { status: 400 });
+    }
+    tests = (b.tests as Array<Record<string, unknown>>).map((t) => ({
+      title: t.title as string,
+      status: t.status as AutomationTestResult["status"],
+    }));
+  }
   if (
     !isNonEmptyString(b.runKey, 100) ||
     !isNonEmptyString(b.workflow, 100) ||
@@ -103,6 +130,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       failed: b.failed,
       skipped: b.skipped,
       failedTests: b.failedTests as string[],
+      tests,
       cleanupStatus: cleanupStatus as AutomationCleanupStatus,
     });
   } catch {

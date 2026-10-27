@@ -49,14 +49,25 @@ const passed = Number(stats.expected ?? 0);
 const failed = Number(stats.unexpected ?? 0);
 const skipped = Number(stats.skipped ?? 0);
 
-// Walk nested suites/specs collecting failed spec titles.
+// Walk nested suites/specs collecting every spec's title and
+// outcome (for the owner page's per-test list) plus failed titles.
 const failedTests = [];
+const tests = [];
+function specStatus(spec) {
+  const results = (spec.tests ?? []).flatMap((t) => t.results ?? []);
+  if (results.length === 0) return "failed";
+  if (results.every((r) => r.status === "skipped")) {
+    return "skipped";
+  }
+  return spec.ok ? "passed" : "failed";
+}
 function walkSuites(suites) {
   for (const suite of suites ?? []) {
     for (const spec of suite.specs ?? []) {
-      if (spec.ok === false) {
-        const title = [suite.title, spec.title].filter(Boolean).join(" > ");
-        if (title) failedTests.push(title.slice(0, 300));
+      const title = [suite.title, spec.title].filter(Boolean).join(" > ");
+      if (title) {
+        tests.push({ title: title.slice(0, 300), status: specStatus(spec) });
+        if (spec.ok === false) failedTests.push(title.slice(0, 300));
       }
     }
     walkSuites(suite.suites);
@@ -64,6 +75,7 @@ function walkSuites(suites) {
 }
 walkSuites(report.suites);
 const uniqueFailed = [...new Set(failedTests)].slice(0, 50);
+const uniqueTests = tests.slice(0, 100);
 
 // Cleanup status comes from the suite's own final cleanup test:
 // it passes only when no test article remains.
@@ -105,6 +117,7 @@ const payload = {
   failed,
   skipped,
   failedTests: uniqueFailed,
+  tests: uniqueTests,
   cleanupStatus,
 };
 
@@ -122,5 +135,5 @@ if (!response.ok) {
   );
 }
 console.log(
-  `report-to-site: posted ${payload.workflow} run ${payload.runKey} (${payload.status}, ${passed} passed, ${failed} failed, cleanup ${cleanupStatus}).`,
+  `report-to-site: posted ${payload.workflow} run ${payload.runKey} (${payload.status}, ${passed} passed, ${failed} failed, ${uniqueTests.length} tests listed, cleanup ${cleanupStatus}).`,
 );

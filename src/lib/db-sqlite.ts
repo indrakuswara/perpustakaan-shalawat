@@ -15,6 +15,8 @@ import type {
   AutomationRun,
   AutomationRunInput,
   AutomationRunStatus,
+  AutomationTestResult,
+  AutomationTestStatus,
   ContentFilter,
   ContentInput,
   ContentRow,
@@ -88,6 +90,7 @@ function initSchema(db: DatabaseSync): void {
       failed INTEGER NOT NULL DEFAULT 0,
       skipped INTEGER NOT NULL DEFAULT 0,
       failed_tests TEXT NOT NULL DEFAULT '[]',
+      tests TEXT NOT NULL DEFAULT '[]',
       cleanup_status TEXT NOT NULL DEFAULT 'unknown',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -101,6 +104,17 @@ function initSchema(db: DatabaseSync): void {
   );
   if (!hasBlocks) {
     db.exec("ALTER TABLE contents ADD COLUMN blocks TEXT");
+  }
+  // Migrasi ringan: tambah kolom tests untuk tabel automation_runs
+  // yang dibuat sebelum daftar per-tes ada (mis. production yang
+  // sudah menyimpan run pertama tanpa kolom ini).
+  const hasTests = db
+    .prepare(
+      "SELECT name FROM pragma_table_info('automation_runs') WHERE name = 'tests'",
+    )
+    .get() as { name: string } | undefined;
+  if (!hasTests) {
+    db.exec("ALTER TABLE automation_runs ADD COLUMN tests TEXT NOT NULL DEFAULT '[]'");
   }
 }
 
@@ -502,6 +516,30 @@ export function recordRequestHit(ipHash: string, pruneBeforeIso: string): void {
 
 // --- Laporan automation (halaman admin tersembunyi) ---
 
+function parseAutomationTests(raw: unknown): AutomationTestResult[] {
+  try {
+    const parsed: unknown = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (v): v is Record<string, unknown> =>
+          typeof v === "object" && v !== null,
+      )
+      .map((v) => ({
+        title: typeof v.title === "string" ? v.title : "",
+        // Fail closed: an unknown or corrupt status never displays
+        // as passed.
+        status:
+          v.status === "passed" || v.status === "skipped"
+            ? (v.status as AutomationTestStatus)
+            : "failed",
+      }))
+      .filter((v) => v.title.length > 0);
+  } catch {
+    return [];
+  }
+}
+
 function mapAutomationRun(row: unknown): AutomationRun {
   const r = row as Record<string, string | number>;
   let failedTests: string[] = [];
@@ -525,6 +563,7 @@ function mapAutomationRun(row: unknown): AutomationRun {
     failed: Number(r.failed),
     skipped: Number(r.skipped),
     failedTests,
+    tests: parseAutomationTests(r.tests),
     cleanupStatus: r.cleanup_status as AutomationCleanupStatus,
     createdAt: String(r.created_at),
   };
@@ -535,8 +574,8 @@ export function createAutomationRun(input: AutomationRunInput): AutomationRun {
   db.prepare(
     `INSERT INTO automation_runs
        (run_key, workflow, trigger, status, commit_sha, actor, actions_url,
-        passed, failed, skipped, failed_tests, cleanup_status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        passed, failed, skipped, failed_tests, tests, cleanup_status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(run_key) DO UPDATE SET
        workflow = excluded.workflow,
        trigger = excluded.trigger,
@@ -548,6 +587,7 @@ export function createAutomationRun(input: AutomationRunInput): AutomationRun {
        failed = excluded.failed,
        skipped = excluded.skipped,
        failed_tests = excluded.failed_tests,
+       tests = excluded.tests,
        cleanup_status = excluded.cleanup_status,
        created_at = datetime('now')`,
   ).run(
@@ -562,6 +602,7 @@ export function createAutomationRun(input: AutomationRunInput): AutomationRun {
     input.failed,
     input.skipped,
     JSON.stringify(input.failedTests),
+    JSON.stringify(input.tests ?? []),
     input.cleanupStatus,
   );
   // Simpan maksimal 50 run terbaru; yang lebih lama dihapus.
