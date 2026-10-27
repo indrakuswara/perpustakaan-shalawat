@@ -52,6 +52,36 @@ function getPool(): Pool {
 
 async function ensureSchema(): Promise<void> {
   if (globalForPool.pgSchemaReady) return;
+  // CREATE TABLE IF NOT EXISTS tidak aman dari race di Postgres:
+  // dua proses prerender Vercel yang bersamaan sama-sama melihat
+  // tabel automation_runs belum ada, sama-sama mencoba membuatnya,
+  // dan yang kedua gagal dengan duplicate key di pg_type (23505).
+  // Itu persis yang menggagalkan build production 100d02b, padahal
+  // build lokal lolos karena hanya satu proses. Kalau errornya
+  // salah satu kode lomba DDL (23505 duplikat key, 42701 duplikat
+  // kolom, 42P07 duplikat tabel, 42710 duplikat objek), ulangi
+  // sampai total 3 percobaan: proses lain sudah membuat tabelnya,
+  // sehingga percobaan ulang hanya menjadi no-op. Error lain tetap
+  // dilempar.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await createSchemaTables();
+      break;
+    } catch (err) {
+      const code = (err as { code?: unknown }).code;
+      const isRace =
+        code === "23505" ||
+        code === "42701" ||
+        code === "42P07" ||
+        code === "42710";
+      if (!isRace || attempt === 3) throw err;
+      await new Promise((r) => setTimeout(r, 100 * attempt));
+    }
+  }
+  globalForPool.pgSchemaReady = true;
+}
+
+async function createSchemaTables(): Promise<void> {
   await getPool().query(`
     CREATE TABLE IF NOT EXISTS admins (
       id TEXT PRIMARY KEY,
