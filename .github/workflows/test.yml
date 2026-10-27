@@ -1,0 +1,70 @@
+name: Deploy gate (Playwright)
+
+# Pre-deploy gate: every push to master and every pull request builds
+# the app and runs the full Playwright suite against a local
+# `next start` backed by an ephemeral SQLite database. This job never
+# touches production data.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    env:
+      SESSION_SECRET: ci-test-secret-only
+      AUTOMATION_REPORT_TOKEN: ci-test-token-only
+      E2E_ADMIN_EMAIL: admin@perpustakaan.local
+      E2E_ADMIN_PASSWORD: admin123
+      PLAYWRIGHT_BASE_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Seed local test admin (SQLite only)
+        # seed.ts reads ADMIN_EMAIL/ADMIN_PASSWORD, not the E2E_*
+        # names used by the suite. Map them explicitly so changing
+        # the workflow values cannot silently diverge seeding from login.
+        run: ADMIN_EMAIL="$E2E_ADMIN_EMAIL" ADMIN_PASSWORD="$E2E_ADMIN_PASSWORD" node scripts/seed.ts
+      - name: Seed one published test article (SQLite only)
+        run: node scripts/seed-e2e-content.ts
+      - run: npm run build
+      - name: Start app
+        # nohup + disown so the server survives into the next steps
+        # instead of being killed with this step's process group.
+        run: nohup npm run start -- -p 3000 > /tmp/next.log 2>&1 & disown
+      - name: Wait for app
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3000/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo "App did not start in time"; cat /tmp/next.log; exit 1
+      - run: npm run test:e2e
+      - name: Post run summary to the local report endpoint
+        # Always runs, even when tests fail, so a failed run is
+        # recorded too. The local database is ephemeral and
+        # discarded with the runner; this step exists to exercise
+        # the endpoint and the summary script in CI.
+        if: always()
+        env:
+          BASE_URL: http://localhost:3000
+          WORKFLOW_NAME: Deploy gate (Playwright)
+        run: node e2e/report-to-site.mjs
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+            playwright-report
+            test-results
+          if-no-files-found: ignore

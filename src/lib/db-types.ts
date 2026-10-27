@@ -65,6 +65,45 @@ export interface RequestInput {
   note?: string | null;
 }
 
+// ---- Laporan automation (halaman admin tersembunyi) ----
+// Satu baris per run workflow Playwright. runKey unik per run GitHub
+// (run id + attempt) sehingga retry tidak menduplikasi baris.
+// failedTests disimpan sebagai JSON string di DB, diparse saat dibaca.
+
+export type AutomationRunStatus = "passed" | "failed";
+export type AutomationCleanupStatus = "clean" | "leftover" | "unknown";
+
+export interface AutomationRun {
+  runKey: string;
+  workflow: string;
+  trigger: string;
+  status: AutomationRunStatus;
+  commitSha: string;
+  actor: string;
+  actionsUrl: string;
+  passed: number;
+  failed: number;
+  skipped: number;
+  failedTests: string[];
+  cleanupStatus: AutomationCleanupStatus;
+  createdAt: string;
+}
+
+export interface AutomationRunInput {
+  runKey: string;
+  workflow: string;
+  trigger: string;
+  status: AutomationRunStatus;
+  commitSha: string;
+  actor: string;
+  actionsUrl: string;
+  passed: number;
+  failed: number;
+  skipped: number;
+  failedTests: string[];
+  cleanupStatus: AutomationCleanupStatus;
+}
+
 export interface RequestFilter {
   kind?: RequestKind;
   status?: RequestStatus;

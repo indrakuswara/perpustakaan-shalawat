@@ -11,6 +11,10 @@ import { randomUUID } from "node:crypto";
 import type {
   AdminRow,
   ArticleBlocks,
+  AutomationCleanupStatus,
+  AutomationRun,
+  AutomationRunInput,
+  AutomationRunStatus,
   ContentFilter,
   ContentInput,
   ContentRow,
@@ -72,6 +76,22 @@ function initSchema(db: DatabaseSync): void {
       hit_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_request_hits_hash ON request_hits(ip_hash);
+    CREATE TABLE IF NOT EXISTS automation_runs (
+      run_key TEXT PRIMARY KEY,
+      workflow TEXT NOT NULL,
+      trigger TEXT NOT NULL,
+      status TEXT NOT NULL,
+      commit_sha TEXT NOT NULL,
+      actor TEXT NOT NULL,
+      actions_url TEXT NOT NULL,
+      passed INTEGER NOT NULL DEFAULT 0,
+      failed INTEGER NOT NULL DEFAULT 0,
+      skipped INTEGER NOT NULL DEFAULT 0,
+      failed_tests TEXT NOT NULL DEFAULT '[]',
+      cleanup_status TEXT NOT NULL DEFAULT 'unknown',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_automation_runs_created ON automation_runs(created_at DESC);
   `);
   // Migrasi ringan: tambah kolom blocks untuk DB yang dibuat sebelum fitur ini.
   const hasBlocks = (
@@ -478,4 +498,91 @@ export function recordRequestHit(ipHash: string, pruneBeforeIso: string): void {
   const db = getDb();
   db.prepare("DELETE FROM request_hits WHERE hit_at < ?").run(prune);
   db.prepare("INSERT INTO request_hits (ip_hash) VALUES (?)").run(ipHash);
+}
+
+// --- Laporan automation (halaman admin tersembunyi) ---
+
+function mapAutomationRun(row: unknown): AutomationRun {
+  const r = row as Record<string, string | number>;
+  let failedTests: string[] = [];
+  try {
+    const parsed: unknown = JSON.parse(String(r.failed_tests ?? "[]"));
+    if (Array.isArray(parsed)) {
+      failedTests = parsed.filter((v): v is string => typeof v === "string");
+    }
+  } catch {
+    failedTests = [];
+  }
+  return {
+    runKey: String(r.run_key),
+    workflow: String(r.workflow),
+    trigger: String(r.trigger),
+    status: r.status as AutomationRunStatus,
+    commitSha: String(r.commit_sha),
+    actor: String(r.actor),
+    actionsUrl: String(r.actions_url),
+    passed: Number(r.passed),
+    failed: Number(r.failed),
+    skipped: Number(r.skipped),
+    failedTests,
+    cleanupStatus: r.cleanup_status as AutomationCleanupStatus,
+    createdAt: String(r.created_at),
+  };
+}
+
+export function createAutomationRun(input: AutomationRunInput): AutomationRun {
+  const db = getDb();
+  db.prepare(
+    `INSERT INTO automation_runs
+       (run_key, workflow, trigger, status, commit_sha, actor, actions_url,
+        passed, failed, skipped, failed_tests, cleanup_status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(run_key) DO UPDATE SET
+       workflow = excluded.workflow,
+       trigger = excluded.trigger,
+       status = excluded.status,
+       commit_sha = excluded.commit_sha,
+       actor = excluded.actor,
+       actions_url = excluded.actions_url,
+       passed = excluded.passed,
+       failed = excluded.failed,
+       skipped = excluded.skipped,
+       failed_tests = excluded.failed_tests,
+       cleanup_status = excluded.cleanup_status,
+       created_at = datetime('now')`,
+  ).run(
+    input.runKey,
+    input.workflow,
+    input.trigger,
+    input.status,
+    input.commitSha,
+    input.actor,
+    input.actionsUrl,
+    input.passed,
+    input.failed,
+    input.skipped,
+    JSON.stringify(input.failedTests),
+    input.cleanupStatus,
+  );
+  // Simpan maksimal 50 run terbaru; yang lebih lama dihapus.
+  db.prepare(
+    `DELETE FROM automation_runs WHERE run_key NOT IN
+       (SELECT run_key FROM automation_runs
+        ORDER BY created_at DESC, run_key DESC LIMIT 50)`,
+  ).run();
+  const row = db
+    .prepare("SELECT * FROM automation_runs WHERE run_key = ?")
+    .get(input.runKey);
+  if (!row) throw new Error("Gagal menyimpan laporan automation");
+  return mapAutomationRun(row);
+}
+
+export function listAutomationRuns(limit = 50): AutomationRun[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT * FROM automation_runs
+       ORDER BY created_at DESC, run_key DESC LIMIT ?`,
+    )
+    .all(limit);
+  return (rows as unknown[]).map(mapAutomationRun);
 }

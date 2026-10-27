@@ -1,0 +1,74 @@
+name: Post-deploy smoke (production)
+
+# Post-deploy validation against production. Runs when Vercel marks a
+# PRODUCTION deployment successful (never a PR preview), and can also
+# be run manually from the Actions tab. This is the ONLY workflow that touches production, and it only
+# creates dummy data marked E2E-TEST, publishes it briefly inside one
+# run, then unpublishes and deletes it in the same run (see e2e/).
+#
+# Required repository secrets (never committed):
+#   E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD, AUTOMATION_REPORT_TOKEN
+# If admin credentials are missing, the CRUD suite fails with a
+# clear message instead of silently downgrading to read-only
+# checks. AUTOMATION_REPORT_TOKEN must also be set to the SAME
+# value as a Vercel environment variable, or the run summary
+# cannot be posted to the hidden owner report page.
+on:
+  deployment_status:
+  workflow_dispatch:
+
+jobs:
+  smoke-prod:
+    # deployment_status fires for every deployment state AND for every
+    # environment, including Vercel PR previews. Only run on a
+    # successful PRODUCTION deployment, never on a preview: a preview
+    # run must not write test data to production. Both casings are
+    # accepted because Vercel's exact environment casing in the
+    # payload is not verified here; if neither matches, the job
+    # skips safely instead of writing anywhere. Manual dispatch
+    # always runs and is the fallback.
+    if: github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && contains(fromJSON('["Production", "production"]'), github.event.deployment.environment))
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_BASE_URL: https://perpustakaan-shalawat.vercel.app
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      AUTOMATION_REPORT_TOKEN: ${{ secrets.AUTOMATION_REPORT_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # On deployment_status, checkout the exact deployed commit,
+          # not the default branch HEAD: a second push landing
+          # between the deploy and the status event would otherwise
+          # make the suite test newer code against the deployed app.
+          # The fallback covers workflow_dispatch, where deployment
+          # is null.
+          ref: ${{ github.event.deployment.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Post run summary to the owner report page
+        # Always runs, even when tests fail, so a failed run is
+        # recorded on /admin/automationreport too. If this POST
+        # fails, the job fails loudly instead of leaving the owner
+        # page silently stale.
+        if: always()
+        env:
+          BASE_URL: https://perpustakaan-shalawat.vercel.app
+          WORKFLOW_NAME: Post-deploy smoke (production)
+        run: node e2e/report-to-site.mjs
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-prod
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+            playwright-report
+            test-results
+          if-no-files-found: ignore

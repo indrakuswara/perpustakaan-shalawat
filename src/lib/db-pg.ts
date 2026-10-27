@@ -7,6 +7,10 @@ import { Pool } from "pg";
 import { randomUUID } from "node:crypto";
 import type {
   AdminRow,
+  AutomationCleanupStatus,
+  AutomationRun,
+  AutomationRunInput,
+  AutomationRunStatus,
   ContentFilter,
   ContentInput,
   ContentRow,
@@ -88,6 +92,22 @@ async function ensureSchema(): Promise<void> {
       hit_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS idx_request_hits_hash ON request_hits(ip_hash);
+    CREATE TABLE IF NOT EXISTS automation_runs (
+      run_key TEXT PRIMARY KEY,
+      workflow TEXT NOT NULL,
+      trigger TEXT NOT NULL,
+      status TEXT NOT NULL,
+      commit_sha TEXT NOT NULL,
+      actor TEXT NOT NULL,
+      actions_url TEXT NOT NULL,
+      passed INTEGER NOT NULL DEFAULT 0,
+      failed INTEGER NOT NULL DEFAULT 0,
+      skipped INTEGER NOT NULL DEFAULT 0,
+      failed_tests TEXT NOT NULL DEFAULT '[]',
+      cleanup_status TEXT NOT NULL DEFAULT 'unknown',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_automation_runs_created ON automation_runs(created_at DESC);
   `);
   // Migrasi ringan: tambah kolom blocks untuk DB yang dibuat sebelum fitur ini.
   await getPool().query(
@@ -499,4 +519,93 @@ export async function recordRequestHit(
 ): Promise<void> {
   await query("DELETE FROM request_hits WHERE hit_at < $1", [pruneBeforeIso]);
   await query("INSERT INTO request_hits (ip_hash) VALUES ($1)", [ipHash]);
+}
+
+// --- Laporan automation (halaman admin tersembunyi) ---
+
+function mapAutomationRun(r: Record<string, unknown>): AutomationRun {
+  let failedTests: string[] = [];
+  try {
+    const parsed: unknown =
+      typeof r.failed_tests === "string"
+        ? JSON.parse(r.failed_tests)
+        : r.failed_tests;
+    if (Array.isArray(parsed)) {
+      failedTests = parsed.filter((v): v is string => typeof v === "string");
+    }
+  } catch {
+    failedTests = [];
+  }
+  return {
+    runKey: String(r.run_key),
+    workflow: String(r.workflow),
+    trigger: String(r.trigger),
+    status: r.status as AutomationRunStatus,
+    commitSha: String(r.commit_sha),
+    actor: String(r.actor),
+    actionsUrl: String(r.actions_url),
+    passed: Number(r.passed),
+    failed: Number(r.failed),
+    skipped: Number(r.skipped),
+    failedTests,
+    cleanupStatus: r.cleanup_status as AutomationCleanupStatus,
+    createdAt: toISO(r.created_at),
+  };
+}
+
+export async function createAutomationRun(
+  input: AutomationRunInput,
+): Promise<AutomationRun> {
+  const rows = await query<Record<string, unknown>>(
+    `INSERT INTO automation_runs
+       (run_key, workflow, trigger, status, commit_sha, actor, actions_url,
+        passed, failed, skipped, failed_tests, cleanup_status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+     ON CONFLICT (run_key) DO UPDATE SET
+       workflow = EXCLUDED.workflow,
+       trigger = EXCLUDED.trigger,
+       status = EXCLUDED.status,
+       commit_sha = EXCLUDED.commit_sha,
+       actor = EXCLUDED.actor,
+       actions_url = EXCLUDED.actions_url,
+       passed = EXCLUDED.passed,
+       failed = EXCLUDED.failed,
+       skipped = EXCLUDED.skipped,
+       failed_tests = EXCLUDED.failed_tests,
+       cleanup_status = EXCLUDED.cleanup_status,
+       created_at = now()
+     RETURNING *`,
+    [
+      input.runKey,
+      input.workflow,
+      input.trigger,
+      input.status,
+      input.commitSha,
+      input.actor,
+      input.actionsUrl,
+      input.passed,
+      input.failed,
+      input.skipped,
+      JSON.stringify(input.failedTests),
+      input.cleanupStatus,
+    ],
+  );
+  await query(
+    `DELETE FROM automation_runs WHERE run_key NOT IN
+       (SELECT run_key FROM automation_runs
+        ORDER BY created_at DESC, run_key DESC LIMIT 50)`,
+  );
+  if (!rows[0]) throw new Error("Gagal menyimpan laporan automation");
+  return mapAutomationRun(rows[0]);
+}
+
+export async function listAutomationRuns(
+  limit = 50,
+): Promise<AutomationRun[]> {
+  const rows = await query<Record<string, unknown>>(
+    `SELECT * FROM automation_runs
+     ORDER BY created_at DESC, run_key DESC LIMIT $1`,
+    [limit],
+  );
+  return rows.map(mapAutomationRun);
 }

@@ -9,6 +9,10 @@ import * as pgBackend from "./db-pg.ts";
 
 export type {
   AdminRow,
+  AutomationCleanupStatus,
+  AutomationRun,
+  AutomationRunInput,
+  AutomationRunStatus,
   ContentFilter,
   ContentInput,
   ContentRow,
@@ -125,4 +129,14 @@ export async function listRequestHitTimes(ipHash: string, sinceIso: string) {
 }
 export async function recordRequestHit(ipHash: string, pruneBeforeIso: string) {
   return backend.recordRequestHit(ipHash, pruneBeforeIso);
+}
+
+// --- Laporan automation (halaman admin tersembunyi) ---
+export async function createAutomationRun(
+  input: Parameters<typeof backend.createAutomationRun>[0],
+) {
+  return backend.createAutomationRun(input);
+}
+export async function listAutomationRuns(limit = 50) {
+  return backend.listAutomationRuns(limit);
 }
