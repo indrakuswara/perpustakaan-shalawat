@@ -8,6 +8,12 @@ name: Post-deploy smoke (production)
 #
 # Required repository secrets (never committed):
 #   E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD, AUTOMATION_REPORT_TOKEN
+# Optional (screenshots only): BLOB_READ_WRITE_TOKEN, the token of
+# the project's Vercel Blob store. No Vercel env var is read by the
+# app: uploads run from this CI job with the token passed
+# explicitly, and the screenshot proxy fetches public Blob URLs
+# anonymously. Without the secret the report still posts, but tests
+# have no screenshot evidence for that run.
 # If admin credentials are missing, the CRUD suite fails with a
 # clear message instead of silently downgrading to read-only
 # checks. AUTOMATION_REPORT_TOKEN must also be set to the SAME
@@ -60,12 +66,21 @@ jobs:
         env:
           BASE_URL: https://perpustakaan-shalawat.vercel.app
           WORKFLOW_NAME: Post-deploy smoke (production)
+          # Only the production smoke uploads screenshots to Blob:
+          # the local gate deliberately has no Blob token, so its
+          # ephemeral report posts steps without screenshots.
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node e2e/report-to-site.mjs
-      - name: Upload Playwright report on failure
-        if: failure()
+      - name: Upload Playwright report
+        # Always, pass or fail: the owner report must have evidence
+        # for every run, and the artifact is the full HTML report
+        # behind the owner page's summary. Retention bounds the
+        # storage: GitHub deletes the artifact automatically.
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-prod
+          retention-days: 30
           path: |
             e2e/playwright-report
             e2e/test-results

@@ -74,9 +74,17 @@ export type AutomationRunStatus = "passed" | "failed";
 export type AutomationCleanupStatus = "clean" | "leftover" | "unknown";
 export type AutomationTestStatus = "passed" | "failed" | "skipped";
 
+export interface AutomationTestStep {
+  title: string;
+  status: "passed" | "failed";
+  durationMs: number;
+}
+
 export interface AutomationTestResult {
   title: string;
   status: AutomationTestStatus;
+  steps: AutomationTestStep[];
+  screenshot: string | null;
 }
 
 export interface AutomationRun {

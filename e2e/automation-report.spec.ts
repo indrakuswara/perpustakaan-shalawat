@@ -61,8 +61,25 @@ test.describe("hidden admin automation report", () => {
         skipped: 0,
         failedTests: ["Contoh tes gagal"],
         tests: [
-          { title: "Contoh tes lolos", status: "passed" },
-          { title: "Contoh tes gagal", status: "failed" },
+          {
+            title: "Contoh tes lolos",
+            status: "passed",
+            steps: [
+              { title: "Buka halaman", status: "passed", durationMs: 120 },
+            ],
+            // example.com has no such path, so the screenshot
+            // proxy answers 404 and the page shows its fallback
+            // note instead of a broken image. That fallback path
+            // is what this assertion proves; a real Blob image is
+            // proven by the production smoke run.
+            screenshot: "https://example.com/evidence.png",
+          },
+          {
+            title: "Contoh tes gagal",
+            status: "failed",
+            steps: [],
+            screenshot: null,
+          },
         ],
         cleanupStatus: "clean",
       },
@@ -85,6 +102,17 @@ test.describe("hidden admin automation report", () => {
     await expect(card.getByText("Contoh tes lolos")).toBeHidden();
     await card.getByText("Lihat 2 tes").click();
     await expect(card.getByText("Contoh tes lolos")).toBeVisible();
+    await expect(card.getByText("Buka halaman")).toBeVisible();
+    // The dummy screenshot URL 404s in the proxy, so the page
+    // shows the fallback note, not a broken image.
+    await expect(
+      card.getByText("Bukti screenshot tidak tersedia", { exact: false }),
+    ).toBeVisible();
+    await expect(
+      card.getByText("Tidak ada bukti screenshot untuk tes ini", {
+        exact: false,
+      }),
+    ).toBeVisible();
   });
 
   test("renders a fallback note when a summary has no per-test detail", async ({
@@ -172,6 +200,96 @@ test.describe("hidden admin automation report", () => {
       },
     });
     expect(notArray.status()).toBe(400);
+  });
+
+  test("rejects invalid steps or screenshot in a test entry", async ({
+    request,
+  }) => {
+    const token = process.env.AUTOMATION_REPORT_TOKEN ?? "";
+    test.skip(!token, "AUTOMATION_REPORT_TOKEN is not set");
+    const baseData = {
+      trigger: "test",
+      status: "passed",
+      commitSha: "abc1234",
+      actor: "test-owner",
+      actionsUrl:
+        "https://github.com/indrakuswara/perpustakaan-shalawat/actions/runs/1",
+      passed: 1,
+      failed: 0,
+      skipped: 0,
+      failedTests: [],
+      cleanupStatus: "unknown",
+    };
+    const badStep = await request.post("/api/automation-report", {
+      headers: { "x-automation-token": token },
+      data: {
+        ...baseData,
+        runKey: "e2e-report-bad-step",
+        workflow: "Test Laporan Automation",
+        tests: [
+          {
+            title: "Contoh tes",
+            status: "passed",
+            steps: [{ title: "Langkah", status: "bogus", durationMs: 1 }],
+            screenshot: null,
+          },
+        ],
+      },
+    });
+    expect(badStep.status()).toBe(400);
+    const badScreenshot = await request.post("/api/automation-report", {
+      headers: { "x-automation-token": token },
+      data: {
+        ...baseData,
+        runKey: "e2e-report-bad-screenshot",
+        workflow: "Test Laporan Automation",
+        tests: [
+          {
+            title: "Contoh tes",
+            status: "passed",
+            steps: [],
+            screenshot: "http://bukan-https.example/x.png",
+          },
+        ],
+      },
+    });
+    expect(badScreenshot.status()).toBe(400);
+  });
+
+  // Screenshot proxy auth boundary: read-only, but it gates
+  // evidence images behind the admin session, so both the 401
+  // and the 404 paths are asserted directly. Localhost only:
+  // these need a real admin login, which the production smoke
+  // must not depend on for a read check.
+  test("screenshot proxy requires an admin session", async ({ request }) => {
+    const base = process.env.PLAYWRIGHT_BASE_URL ?? "";
+    test.skip(
+      !base.includes("localhost") && !base.includes("127.0.0.1"),
+      "Proxy test only runs against a local test server",
+    );
+    const response = await request.get(
+      "/api/automation-screenshot?runKey=tidak-ada&index=0",
+    );
+    expect(response.status()).toBe(401);
+  });
+
+  test("screenshot proxy rejects bogus runs and missing index for an admin", async ({
+    page,
+  }) => {
+    const base = process.env.PLAYWRIGHT_BASE_URL ?? "";
+    test.skip(
+      !base.includes("localhost") && !base.includes("127.0.0.1"),
+      "Proxy test only runs against a local test server",
+    );
+    await loginAsAdmin(page);
+    const bogus = await page.request.get(
+      "/api/automation-screenshot?runKey=tidak-ada&index=0",
+    );
+    expect(bogus.status()).toBe(404);
+    const noIndex = await page.request.get(
+      "/api/automation-screenshot?runKey=tidak-ada",
+    );
+    expect(noIndex.status()).toBe(400);
   });
 
   test("rejects a summary without a token", async ({ request }) => {

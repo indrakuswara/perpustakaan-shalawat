@@ -72,9 +72,22 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "cleanupStatus tidak valid." }, { status: 400 });
   }
   // Daftar per-tes opsional (script lama tidak mengirimnya) dan
-  // default-nya kosong; kalau dikirim, setiap entrinya divalidasi.
+  // default-nya kosong; kalau dikirim, setiap entrinya divalidasi,
+  // termasuk step dan screenshot-nya. Step dan screenshot juga
+  // opsional per tes (run lama dan tes tanpa page tidak punya
+  // keduanya), tapi kalau ada, bentuknya harus tepat.
   let tests: AutomationTestResult[] = [];
   if (b.tests !== undefined) {
+    const isValidStep = (s: unknown): s is Record<string, unknown> =>
+      typeof s === "object" &&
+      s !== null &&
+      typeof (s as Record<string, unknown>).title === "string" &&
+      ((s as Record<string, unknown>).title as string).length > 0 &&
+      ((s as Record<string, unknown>).title as string).length <= 300 &&
+      ((s as Record<string, unknown>).status === "passed" ||
+        (s as Record<string, unknown>).status === "failed") &&
+      typeof (s as Record<string, unknown>).durationMs === "number" &&
+      ((s as Record<string, unknown>).durationMs as number) >= 0;
     if (
       !Array.isArray(b.tests) ||
       b.tests.length > 100 ||
@@ -87,7 +100,16 @@ export async function POST(req: Request): Promise<NextResponse> {
           t.title.length <= 300 &&
           (t.status === "passed" ||
             t.status === "failed" ||
-            t.status === "skipped"),
+            t.status === "skipped") &&
+          (t.steps === undefined ||
+            (Array.isArray(t.steps) &&
+              t.steps.length <= 50 &&
+              t.steps.every(isValidStep))) &&
+          (t.screenshot === undefined ||
+            t.screenshot === null ||
+            (typeof t.screenshot === "string" &&
+              t.screenshot.length <= 500 &&
+              t.screenshot.startsWith("https://"))),
       )
     ) {
       return NextResponse.json({ error: "Payload tidak valid." }, { status: 400 });
@@ -95,6 +117,15 @@ export async function POST(req: Request): Promise<NextResponse> {
     tests = (b.tests as Array<Record<string, unknown>>).map((t) => ({
       title: t.title as string,
       status: t.status as AutomationTestResult["status"],
+      steps: Array.isArray(t.steps)
+        ? (t.steps as Array<Record<string, unknown>>).map((s) => ({
+            title: s.title as string,
+            status: s.status as "passed" | "failed",
+            durationMs: s.durationMs as number,
+          }))
+        : [],
+      screenshot:
+        typeof t.screenshot === "string" ? t.screenshot : null,
     }));
   }
   if (

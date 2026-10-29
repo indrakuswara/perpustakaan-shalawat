@@ -32,6 +32,9 @@ export default defineConfig({
       ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH }
       : undefined,
     trace: "on-first-retry",
-    screenshot: "only-on-failure",
+    // "on": every test produces a screenshot attachment, so the
+    // owner report can show evidence for passed tests too, not
+    // only failures. Previously "only-on-failure".
+    screenshot: "on",
   },
 });

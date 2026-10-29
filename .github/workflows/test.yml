@@ -57,11 +57,16 @@ jobs:
           BASE_URL: http://localhost:3000
           WORKFLOW_NAME: Deploy gate (Playwright)
         run: node e2e/report-to-site.mjs
-      - name: Upload Playwright report on failure
-        if: failure()
+      - name: Upload Playwright report
+        # Always, pass or fail: the owner report must have evidence
+        # for every run, and the artifact is the full HTML report
+        # behind the owner page's summary. Retention bounds the
+        # storage: GitHub deletes the artifact automatically.
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
+          retention-days: 30
           path: |
             e2e/playwright-report
             e2e/test-results

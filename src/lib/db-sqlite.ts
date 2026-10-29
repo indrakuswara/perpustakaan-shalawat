@@ -16,6 +16,7 @@ import type {
   AutomationRunInput,
   AutomationRunStatus,
   AutomationTestResult,
+  AutomationTestStep,
   AutomationTestStatus,
   ContentFilter,
   ContentInput,
@@ -533,6 +534,28 @@ function parseAutomationTests(raw: unknown): AutomationTestResult[] {
           v.status === "passed" || v.status === "skipped"
             ? (v.status as AutomationTestStatus)
             : "failed",
+        steps: Array.isArray(v.steps)
+          ? v.steps
+              .filter(
+                (s): s is Record<string, unknown> =>
+                  typeof s === "object" && s !== null,
+              )
+              .map((s): AutomationTestStep => ({
+                title: typeof s.title === "string" ? s.title : "",
+                status: s.status === "passed" ? "passed" : "failed",
+                durationMs:
+                  typeof s.durationMs === "number" && s.durationMs >= 0
+                    ? Math.floor(s.durationMs)
+                    : 0,
+              }))
+              .filter((s) => s.title.length > 0)
+              .slice(0, 50)
+          : [],
+        screenshot:
+          typeof v.screenshot === "string" &&
+          v.screenshot.startsWith("https://")
+            ? v.screenshot
+            : null,
       }))
       .filter((v) => v.title.length > 0);
   } catch {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentAdmin } from "@/lib/auth";
 import { listAutomationRuns, parseDbDateTime } from "@/lib/db";
+import ScreenshotImage from "./screenshot-image";
 
 // Halaman laporan automation untuk owner. SENGAJA TERSEMBUNYI:
 // tidak ada tombol atau link di situs mana pun (publik maupun admin)
@@ -41,7 +42,8 @@ export default async function AutomationReportPage() {
         </h1>
         <p className="mt-1 text-sm text-stone-500">
           Hasil run Playwright dari GitHub Actions, terbaru di atas.
-          Maksimal 50 run terakhir disimpan.
+          Maksimal 50 run terakhir disimpan; screenshot bukti
+          dipertahankan untuk 10 run terbaru.
         </p>
 
         {runs.length === 0 ? (
@@ -119,31 +121,74 @@ export default async function AutomationReportPage() {
                     <summary className="cursor-pointer text-sm font-medium text-stone-700">
                       Lihat {run.tests.length} tes
                     </summary>
-                    <ul className="mt-2 space-y-1">
+                    <ol className="mt-3 space-y-4">
                       {run.tests.map((t, index) => (
                         <li
                           key={`${index}-${t.title}-${t.status}`}
-                          className="flex items-start gap-2 text-sm text-stone-700"
+                          className="rounded-xl border border-stone-200 p-3"
                         >
-                          <span
-                            className={
-                              t.status === "passed"
-                                ? "font-medium text-emerald-800"
+                          <p className="flex items-start gap-2 text-sm text-stone-800">
+                            <span
+                              className={
+                                t.status === "passed"
+                                  ? "shrink-0 font-medium text-emerald-800"
+                                  : t.status === "failed"
+                                    ? "shrink-0 font-medium text-red-700"
+                                    : "shrink-0 text-stone-500"
+                              }
+                            >
+                              {t.status === "passed"
+                                ? "Lolos"
                                 : t.status === "failed"
-                                  ? "font-medium text-red-700"
-                                  : "text-stone-500"
-                            }
-                          >
-                            {t.status === "passed"
-                              ? "Lolos"
-                              : t.status === "failed"
-                                ? "Gagal"
-                                : "Dilewati"}
-                          </span>
-                          <span>{t.title}</span>
+                                  ? "Gagal"
+                                  : "Dilewati"}
+                            </span>
+                            <span className="font-medium">{t.title}</span>
+                          </p>
+                          {t.steps.length > 0 ? (
+                            <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-stone-700">
+                              {t.steps.map((s, si) => (
+                                <li key={`${si}-${s.title}`}>
+                                  <span
+                                    className={
+                                      s.status === "passed"
+                                        ? "text-emerald-800"
+                                        : "text-red-700"
+                                    }
+                                  >
+                                    {s.status === "passed" ? "✓" : "✗"}
+                                  </span>{" "}
+                                  {s.title}
+                                  <span className="text-stone-400">
+                                    {" "}
+                                    ({(s.durationMs / 1000).toFixed(1)} dtk)
+                                  </span>
+                                </li>
+                              ))}
+                            </ol>
+                          ) : (
+                            <p className="mt-2 text-sm text-stone-500">
+                              Tes ini tidak punya step tercatat.
+                            </p>
+                          )}
+                          <div className="mt-3">
+                            {t.screenshot ? (
+                              <ScreenshotImage
+                                runKey={run.runKey}
+                                index={index}
+                                alt={`Bukti screenshot tes ${t.title}`}
+                              />
+                            ) : (
+                              <p className="text-sm text-stone-500">
+                                Tidak ada bukti screenshot untuk tes ini
+                                (tes tanpa halaman, atau run lama sebelum
+                                screenshot ditambahkan).
+                              </p>
+                            )}
+                          </div>
                         </li>
                       ))}
-                    </ul>
+                    </ol>
                   </details>
                 ) : (
                   <p className="mt-3 text-sm text-stone-500">
