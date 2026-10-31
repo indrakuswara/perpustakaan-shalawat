@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     template: "%s | Perpustakaan Shalawat",
   },
   description:
-    "Perpustakaan digital untuk membaca shalawat dan maulid secara gratis — kapan saja, di mana saja.",
+    "Baca shalawat dan maulid gratis: Arab, Latin, terjemahan Indonesia, dan English, plus unduh PDF.",
 };
 
 export default function SiteLayout({

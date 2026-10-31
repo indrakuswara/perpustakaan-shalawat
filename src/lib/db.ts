@@ -63,8 +63,9 @@ export async function listContents(
 }
 export async function listPublishedContents(
   type?: Parameters<typeof backend.listPublishedContents>[0],
+  orderBy?: Parameters<typeof backend.listPublishedContents>[1],
 ) {
-  return backend.listPublishedContents(type);
+  return backend.listPublishedContents(type, orderBy);
 }
 export async function getPublishedBySlug(slug: string) {
   return backend.getPublishedBySlug(slug);

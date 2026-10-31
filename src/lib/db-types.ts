@@ -40,6 +40,9 @@ export interface ContentFilter {
   status?: ContentStatus;
   type?: ContentType;
   query?: string;
+  // Urutan daftar: "updated" (terakhir diubah, bawaan) atau "published"
+  // (tanggal terbit — dipakai bagian "Terbaru" di beranda, temuan audit A1).
+  orderBy?: "updated" | "published";
 }
 
 // ---- Request Shalawat & Maulid (fitur request tanpa login) ----

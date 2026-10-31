@@ -270,7 +270,11 @@ export function listContents(filter: ContentFilter = {}): ContentRow[] {
   const sql =
     "SELECT * FROM contents" +
     (where.length ? ` WHERE ${where.join(" AND ")}` : "") +
-    " ORDER BY updated_at DESC";
+    (filter.orderBy === "published"
+      ? // published_at tidak pernah null untuk PUBLISHED (diisi saat publish),
+        // tapi COALESCE menjaga baris lama yang datanya tidak lengkap.
+        " ORDER BY COALESCE(published_at, created_at) DESC"
+      : " ORDER BY updated_at DESC");
   const rows = getDb().prepare(sql).all(...params);
   return (rows as unknown[]).map(mapContent);
 }
@@ -278,8 +282,11 @@ export function listContents(filter: ContentFilter = {}): ContentRow[] {
 // Query KHUSUS publik: tidak pernah mengembalikan draft.
 // Dipakai halaman publik (Fase 3); didefinisikan di sini supaya
 // aturannya terpusat dan gampang diaudit.
-export function listPublishedContents(type?: ContentType): ContentRow[] {
-  return listContents({ status: "PUBLISHED", type });
+export function listPublishedContents(
+  type?: ContentType,
+  orderBy?: "updated" | "published",
+): ContentRow[] {
+  return listContents({ status: "PUBLISHED", type, orderBy });
 }
 
 export function getPublishedBySlug(slug: string): ContentRow | null {

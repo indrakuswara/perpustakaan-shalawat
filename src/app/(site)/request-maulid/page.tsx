@@ -4,7 +4,7 @@ import RequestForm from "@/components/site/RequestForm";
 export const metadata: Metadata = {
   title: "Request Maulid",
   description:
-    "Usulkan judul maulid yang belum ada di koleksi — tanpa perlu daftar atau login.",
+    "Usulkan judul maulid yang belum ada di koleksi.",
 };
 
 export default function RequestMaulidPage() {

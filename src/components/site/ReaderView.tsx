@@ -19,6 +19,10 @@ export default function ReaderView({ blocks }: { blocks: ArticleBlocks }) {
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_220px] lg:gap-10">
       <div className="max-w-2xl">
         <TocDropdown items={items} />
+        {/* Legenda urutan lapis tiap bait (temuan audit C2). */}
+        <p className="mb-10 text-center text-sm text-stone-500">
+          Arab • Latin • Terjemahan • English
+        </p>
         {blocks.sections.map((section, sectionIndex) => (
           <section
             key={section.id}

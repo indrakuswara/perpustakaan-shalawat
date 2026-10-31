@@ -113,8 +113,8 @@ export default async function BacaPage({
             Bagikan bacaan ini
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-stone-600">
-            Semoga bermanfaat. Bagikan kepada keluarga dan jamaah pengajian —
-            semoga menjadi amal jariyah bersama.
+            Semoga bermanfaat. Bagikan kepada keluarga dan jamaah pengajian.
+            Semoga menjadi amal jariyah bersama.
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-3">
             <ShareButton

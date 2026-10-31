@@ -316,7 +316,9 @@ export async function listContents(
   const sql =
     "SELECT * FROM contents" +
     (where.length ? ` WHERE ${where.join(" AND ")}` : "") +
-    " ORDER BY updated_at DESC";
+    (filter.orderBy === "published"
+      ? " ORDER BY COALESCE(published_at, created_at) DESC"
+      : " ORDER BY updated_at DESC");
   const rows = await query<Record<string, unknown>>(sql, params);
   return rows.map(mapContent);
 }
@@ -324,8 +326,9 @@ export async function listContents(
 // Query KHUSUS publik: tidak pernah mengembalikan draft.
 export async function listPublishedContents(
   type?: ContentType,
+  orderBy?: "updated" | "published",
 ): Promise<ContentRow[]> {
-  return listContents({ status: "PUBLISHED", type });
+  return listContents({ status: "PUBLISHED", type, orderBy });
 }
 
 export async function getPublishedBySlug(

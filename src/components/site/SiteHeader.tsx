@@ -24,7 +24,7 @@ export default function SiteHeader() {
             <span className="block text-[15px] font-semibold text-stone-900">
               Perpustakaan Shalawat
             </span>
-            <span className="hidden text-xs text-stone-600 sm:block">
+            <span className="block text-xs text-stone-600">
               Shalawat &amp; Maulid
             </span>
           </span>

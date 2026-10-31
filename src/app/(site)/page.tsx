@@ -4,7 +4,8 @@ import ArticleCard from "@/components/site/ArticleCard";
 import SearchForm from "@/components/site/SearchForm";
 
 export default async function HomePage() {
-  const latest = (await listPublishedContents()).slice(0, 6);
+  // "Terbaru" = terakhir DITERBITKAN (temuan audit A1), bukan terakhir diubah.
+  const latest = (await listPublishedContents(undefined, "published")).slice(0, 6);
   const shalawatCount = (await listPublishedContents("SHALAWAT")).length;
   const maulidCount = (await listPublishedContents("MAULID")).length;
 
@@ -16,7 +17,8 @@ export default async function HomePage() {
           Perpustakaan Digital Shalawat &amp; Maulid
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-stone-600 md:text-lg">
-          Kumpulan bacaan shalawat dan maulid yang bisa dibaca kapan saja.
+          Maulid Diba'i, Simtudduror, Qad Kafani, dan banyak lagi.
+          Dilengkapi Arab, Latin, dan artinya.
         </p>
         <div className="mx-auto mt-8 max-w-xl">
           <SearchForm size="lg" />

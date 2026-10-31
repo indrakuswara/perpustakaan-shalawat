@@ -15,8 +15,8 @@ export default function NotFoundContent() {
         Halaman tidak ditemukan
       </h1>
       <p className="mx-auto mt-3 max-w-md leading-relaxed text-stone-600">
-        Maaf, halaman yang kamu cari tidak ada atau sudah dihapus. Mungkin
-        artikelnya belum dipublish.
+        Maaf, halaman yang kamu cari tidak ada atau sudah dihapus.
+        Periksa kembali alamatnya, atau cari dari beranda.
       </p>
       <div className="mt-8 flex justify-center gap-3">
         <Link

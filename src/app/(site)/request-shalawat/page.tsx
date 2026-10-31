@@ -4,7 +4,7 @@ import RequestForm from "@/components/site/RequestForm";
 export const metadata: Metadata = {
   title: "Request Shalawat",
   description:
-    "Usulkan judul shalawat yang belum ada di koleksi — tanpa perlu daftar atau login.",
+    "Usulkan judul shalawat yang belum ada di koleksi.",
 };
 
 export default function RequestShalawatPage() {
