@@ -11,6 +11,14 @@
 //   GITHUB_RUN_ID, GITHUB_RUN_ATTEMPT, GITHUB_EVENT_NAME,
 //   GITHUB_SHA, GITHUB_ACTOR, GITHUB_SERVER_URL, GITHUB_REPOSITORY,
 //   WORKFLOW_NAME.
+// Optional Pact verification result (production smoke only):
+//   PACT_RESULT=passed|failed — when set, one synthetic test entry
+//   ("Pact provider verification (production)") is appended to the
+//   report and the passed/failed counts are adjusted, so the owner
+//   page shows the contract result in the same run row as the
+//   Playwright tests. When unset (local gate runs, which do not run
+//   the verifier), the report posts without the entry. An invalid
+//   value fails loudly instead of posting a misleading entry.
 // Optional screenshot upload (production smoke only):
 //   BLOB_READ_WRITE_TOKEN — when set, each test's screenshot is
 //   uploaded to Vercel Blob under automation/<runKey>/ and its URL
@@ -25,6 +33,7 @@ import { join } from "node:path";
 import {
   collectTests,
   collectCleanupStatus,
+  pactTestEntry,
 } from "./report-lib.mjs";
 
 function fail(message) {
@@ -55,8 +64,8 @@ try {
 }
 
 const stats = report.stats ?? {};
-const passed = Number(stats.expected ?? 0);
-const failed = Number(stats.unexpected ?? 0);
+let passed = Number(stats.expected ?? 0);
+let failed = Number(stats.unexpected ?? 0);
 const skipped = Number(stats.skipped ?? 0);
 
 const { tests: collected, failedTests: uniqueFailed } = collectTests(report);
@@ -177,6 +186,29 @@ const tests = collected.map((t, i) => ({
   steps: t.steps,
   screenshot: screenshotByIndex.get(i) ?? null,
 }));
+
+// Pact verification runs beside Playwright in the production smoke
+// job; its outcome arrives as PACT_RESULT and joins this same row.
+const pactResult = process.env.PACT_RESULT ?? "";
+if (pactResult) {
+  let entry;
+  try {
+    entry = pactTestEntry(pactResult);
+    tests.push(entry);
+  } catch (err) {
+    fail(err.message);
+  }
+  if (pactResult === "passed") {
+    passed++;
+  } else {
+    failed++;
+    uniqueFailed.push(entry.title);
+  }
+} else {
+  console.log(
+    "report-to-site: PACT_RESULT not set, posting without Pact entry (local gate runs).",
+  );
+}
 
 // A zero-test run must never post as "passed": if Playwright
 // produced a report with no specs at all (suite crash before any

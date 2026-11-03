@@ -19,6 +19,17 @@ name: Post-deploy smoke (production)
 # checks. AUTOMATION_REPORT_TOKEN must also be set to the SAME
 # value as a Vercel environment variable, or the run summary
 # cannot be posted to the hidden owner report page.
+#
+# Pact contract verification runs in this same job, after the
+# Playwright suite and before the report step: the contract repo
+# (indrakuswara/contract-testing-pact, public) is checked out into
+# ./pact and its production verifier replays the ReaderWeb contract
+# against the live deployment. Its outcome is recorded as
+# PACT_RESULT and appended to the same owner report row by
+# e2e/report-to-site.mjs, so one run row shows both Playwright
+# and contract results. A failed verification marks this job
+# failed (fail-loud), but the report step still posts thanks to
+# if: always(), so the failure is recorded, not hidden.
 on:
   deployment_status:
   workflow_dispatch:
@@ -57,6 +68,25 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      - name: Check out contract repo
+        # if: always() so a Playwright failure does not turn the Pact
+        # entry into a lie: without it, a skipped verification would
+        # be recorded as "failed" even though it never ran. With it,
+        # "failed" always means the verifier ran and failed.
+        if: always()
+        uses: actions/checkout@v4
+        with:
+          repository: indrakuswara/contract-testing-pact
+          path: pact
+      - name: Verify Pact contract against production
+        id: pact
+        if: always()
+        run: |
+          npm ci --prefix pact
+          PROVIDER_BASE_URL=https://perpustakaan-shalawat.vercel.app npm run test:provider:prod --prefix pact
+      - name: Record Pact result for the report step
+        if: always()
+        run: echo "PACT_RESULT=${{ steps.pact.outcome == 'success' && 'passed' || 'failed' }}" >> "$GITHUB_ENV"
       - name: Post run summary to the owner report page
         # Always runs, even when tests fail, so a failed run is
         # recorded on /admin/automationreport too. If this POST
@@ -66,6 +96,7 @@ jobs:
         env:
           BASE_URL: https://perpustakaan-shalawat.vercel.app
           WORKFLOW_NAME: Post-deploy smoke (production)
+          PACT_RESULT: ${{ env.PACT_RESULT }}
           # Only the production smoke uploads screenshots to Blob:
           # the local gate deliberately has no Blob token, so its
           # ephemeral report posts steps without screenshots.

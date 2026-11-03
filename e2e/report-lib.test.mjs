@@ -8,6 +8,7 @@ import {
   screenshotPath,
   collectTests,
   collectCleanupStatus,
+  pactTestEntry,
 } from "./report-lib.mjs";
 
 const resultWith = (overrides) => ({
@@ -198,6 +199,34 @@ describe("collectTests", () => {
     ]);
     assert.equal(tests[1].screenshotPath, "/tmp/s.png");
     assert.deepEqual(failedTests, ["public smoke > gagal contoh"]);
+  });
+});
+
+describe("pactTestEntry", () => {
+  it("builds a passed entry with one step and no screenshot", () => {
+    assert.deepEqual(pactTestEntry("passed"), {
+      title: "Pact provider verification (production)",
+      status: "passed",
+      steps: [
+        {
+          title: "Verifier memutar ulang kontrak ReaderWeb ke production",
+          status: "passed",
+          durationMs: 0,
+        },
+      ],
+      screenshot: null,
+    });
+  });
+
+  it("builds a failed entry whose step is also failed", () => {
+    const entry = pactTestEntry("failed");
+    assert.equal(entry.status, "failed");
+    assert.equal(entry.steps[0].status, "failed");
+  });
+
+  it("rejects anything but passed/failed so a misconfigured workflow fails loudly", () => {
+    assert.throws(() => pactTestEntry("skipped"), /PACT_RESULT/);
+    assert.throws(() => pactTestEntry(""), /PACT_RESULT/);
   });
 });
 

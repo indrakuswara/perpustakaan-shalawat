@@ -81,6 +81,32 @@ export function collectTests(report) {
   };
 }
 
+// Synthetic report entry for the Pact provider verification step that
+// runs beside Playwright in the production smoke job. It is NOT a
+// Playwright test, so it has no screenshot; its single step names
+// what the verifier did. Invalid values throw so a misconfigured
+// workflow (e.g. a skipped verification step silently reported as
+// passed) fails loudly instead of posting a misleading entry.
+export function pactTestEntry(status) {
+  if (status !== "passed" && status !== "failed") {
+    throw new Error(
+      `PACT_RESULT must be "passed" or "failed", got: ${JSON.stringify(status)}`,
+    );
+  }
+  return {
+    title: "Pact provider verification (production)",
+    status,
+    steps: [
+      {
+        title: "Verifier memutar ulang kontrak ReaderWeb ke production",
+        status,
+        durationMs: 0,
+      },
+    ],
+    screenshot: null,
+  };
+}
+
 // Cleanup status comes from the suite's own final cleanup test:
 // it passes only when no test article remains.
 export function collectCleanupStatus(report) {
