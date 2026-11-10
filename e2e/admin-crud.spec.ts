@@ -7,7 +7,6 @@ import {
   createDraftArticle,
   publishArticle,
   unpublishArticle,
-  deleteArticle,
   cleanupArticle,
 } from "./helpers";
 
@@ -202,8 +201,25 @@ test.describe.serial("admin CRUD lifecycle", () => {
     });
   });
 
+  test("publishes from the preview page", async ({ page }) => {
+    test.skip(articleId === null, "create step did not produce an article id");
+    await test.step("Publish dari halaman preview", async () => {
+      await page.goto(`/admin/articles/${articleId}/preview`);
+      await page
+        .getByRole("button", { name: "Publish artikel ini" })
+        .click();
+      await expect(page).toHaveURL(/\/admin\/articles\?published=1/);
+      await expect(
+        page.getByText("Artikel berhasil dipublish."),
+      ).toBeVisible();
+    });
+  });
+
   test("publishes from the list and keeps the filter", async ({ page }) => {
     test.skip(articleId === null, "create step did not produce an article id");
+    await test.step("Kembalikan ke draft dulu", async () => {
+      await unpublishArticle(page, articleId!);
+    });
     await test.step("Publish dari daftar dengan filter Draft", async () => {
       await page.goto("/admin/articles?status=DRAFT");
       const card = page
@@ -224,8 +240,19 @@ test.describe.serial("admin CRUD lifecycle", () => {
 
   test("deletes the article", async ({ page }) => {
     test.skip(articleId === null, "create step did not produce an article id");
-    await test.step("Hapus artikel permanen", async () => {
-      await deleteArticle(page, articleId!);
+    await test.step("Hapus artikel dari daftar dengan filter Published", async () => {
+      await page.goto("/admin/articles?status=PUBLISHED");
+      const card = page
+        .locator("div.rounded-2xl", {
+          has: page.locator("h2", { hasText: title }),
+        })
+        .first();
+      await card.getByRole("button", { name: "Hapus", exact: true }).click();
+      await page
+        .getByRole("button", { name: "Hapus permanen" })
+        .click();
+      // Redirect mempertahankan filter (temuan reviewer M5).
+      await expect(page).toHaveURL(/status=PUBLISHED&deleted=1/);
       deleted = true;
       await expect(page.getByText("Artikel dihapus.")).toBeVisible();
     });
