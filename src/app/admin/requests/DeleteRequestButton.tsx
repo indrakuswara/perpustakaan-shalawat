@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { RequestKind, RequestStatus } from "@/lib/requests";
+import SubmitButton from "../SubmitButton";
 
 // Tombol "Hapus" request dengan dialog konfirmasi — pola yang sama
 // seperti DeleteArticleButton: penghapusan permanen tanpa undo,
@@ -9,12 +11,19 @@ export default function DeleteRequestButton({
   id,
   title,
   name,
+  returnKind,
+  returnStatus,
   deleteAction,
 }: {
   id: string;
   title: string;
   name: string;
-  deleteAction: () => Promise<void>;
+  // Filter aktif di daftar pemanggil (bila ada): diteruskan sebagai
+  // hidden input supaya redirect sesudah hapus tidak me-reset filter
+  // (temuan reviewer I3).
+  returnKind?: RequestKind;
+  returnStatus?: RequestStatus;
+  deleteAction: (formData: FormData) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -74,12 +83,21 @@ export default function DeleteRequestButton({
                 Batal
               </button>
               <form action={deleteAction} className="inline">
-                <button
-                  type="submit"
+                {returnKind && (
+                  <input type="hidden" name="returnKind" value={returnKind} />
+                )}
+                {returnStatus && (
+                  <input
+                    type="hidden"
+                    name="returnStatus"
+                    value={returnStatus}
+                  />
+                )}
+                <SubmitButton
+                  label="Hapus permanen"
+                  pendingLabel="Menghapus…"
                   className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
-                >
-                  Hapus permanen
-                </button>
+                />
               </form>
             </div>
           </div>

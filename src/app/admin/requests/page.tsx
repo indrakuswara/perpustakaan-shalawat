@@ -5,6 +5,8 @@ import { listRequests, parseDbDateTime, type RequestRow } from "@/lib/db";
 import type { RequestKind, RequestStatus } from "@/lib/requests";
 import { deleteRequestAction, setRequestStatusAction } from "./actions";
 import DeleteRequestButton from "./DeleteRequestButton";
+import Notice from "../Notice";
+import SubmitButton from "../SubmitButton";
 
 const STATUS_LABEL: Record<RequestStatus, string> = {
   baru: "Baru",
@@ -39,19 +41,33 @@ function StatusButton({
   id,
   status,
   label,
+  pendingLabel,
+  returnKind,
+  returnStatus,
 }: {
   id: string;
   status: RequestStatus;
   label: string;
+  pendingLabel: string;
+  // Filter aktif di daftar pemanggil (bila ada): diteruskan sebagai
+  // hidden input supaya redirect sesudah aksi tidak me-reset filter
+  // (temuan reviewer I3).
+  returnKind?: RequestKind;
+  returnStatus?: RequestStatus;
 }) {
   return (
     <form action={setRequestStatusAction.bind(null, id, status)} className="inline">
-      <button
-        type="submit"
+      {returnKind && (
+        <input type="hidden" name="returnKind" value={returnKind} />
+      )}
+      {returnStatus && (
+        <input type="hidden" name="returnStatus" value={returnStatus} />
+      )}
+      <SubmitButton
+        label={label}
+        pendingLabel={pendingLabel}
         className="rounded-lg px-3 py-1.5 text-sm font-medium text-emerald-800 transition hover:bg-emerald-50"
-      >
-        {label}
-      </button>
+      />
     </form>
   );
 }
@@ -59,7 +75,12 @@ function StatusButton({
 export default async function AdminRequestsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ kind?: string; status?: string }>;
+  searchParams: Promise<{
+    kind?: string;
+    status?: string;
+    updated?: string;
+    deleted?: string;
+  }>;
 }) {
   const admin = await getCurrentAdmin();
   if (!admin) {
@@ -106,6 +127,20 @@ export default async function AdminRequestsPage({
             </p>
           </div>
         </div>
+
+        {(sp.updated === "1" || sp.deleted === "1") && (
+          <div className="mt-6">
+            {sp.updated === "1" && (
+              <Notice
+                message="Status request diperbarui."
+                dismissHref={hrefFor({})}
+              />
+            )}
+            {sp.deleted === "1" && (
+              <Notice message="Request dihapus." dismissHref={hrefFor({})} />
+            )}
+          </div>
+        )}
 
         <div className="mt-6 flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-stone-500">Jenis:</span>
@@ -194,18 +229,20 @@ export default async function AdminRequestsPage({
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {r.status !== "selesai" && (
-                        <StatusButton id={r.id} status="selesai" label="Selesai" />
+                        <StatusButton id={r.id} status="selesai" label="Selesai" pendingLabel="Menandai selesai…" returnKind={kind} returnStatus={status} />
                       )}
                       {r.status !== "ditolak" && (
-                        <StatusButton id={r.id} status="ditolak" label="Tolak" />
+                        <StatusButton id={r.id} status="ditolak" label="Tolak" pendingLabel="Menolak…" returnKind={kind} returnStatus={status} />
                       )}
                       {r.status !== "baru" && (
-                        <StatusButton id={r.id} status="baru" label="Baru-kan" />
+                        <StatusButton id={r.id} status="baru" label="Baru-kan" pendingLabel="Mengembalikan…" returnKind={kind} returnStatus={status} />
                       )}
                       <DeleteRequestButton
                         id={r.id}
                         title={r.title}
                         name={r.name}
+                        returnKind={kind}
+                        returnStatus={status}
                         deleteAction={deleteRequestAction.bind(null, r.id)}
                       />
                     </td>

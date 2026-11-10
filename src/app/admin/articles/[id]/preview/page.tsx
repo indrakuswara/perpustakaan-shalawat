@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { getCurrentAdmin } from "@/lib/auth";
 import { getContentById } from "@/lib/db";
 import ReaderView from "@/components/site/ReaderView";
+import SubmitButton from "../../../SubmitButton";
 import { publishArticleAction } from "../../actions";
 
 const TYPE_LABEL = { SHALAWAT: "Shalawat", MAULID: "Maulid" } as const;
@@ -66,12 +67,11 @@ export default async function ArticlePreviewPage({
               action={publishArticleAction.bind(null, article.id)}
               className="inline"
             >
-              <button
-                type="submit"
+              <SubmitButton
+                label="Publish artikel ini"
+                pendingLabel="Mempublish…"
                 className="rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-900"
-              >
-                Publish artikel ini
-              </button>
+              />
             </form>
           )}
         </div>

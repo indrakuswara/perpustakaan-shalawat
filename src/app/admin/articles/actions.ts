@@ -38,6 +38,19 @@ function parseBlocksField(raw: FormDataEntryValue | null): ArticleBlocks {
   return parseBlocks(json);
 }
 
+// Redirect ke daftar artikel dengan parameter sukses, sambil
+// mempertahankan filter status aktif pemanggil (temuan reviewer I3:
+// redirect polos me-reset filter). Nilai returnStatus yang tidak
+// dikenal diabaikan, jadi input form tidak pernah bisa mengarahkan
+// ke URL sembarangan.
+function articlesRedirect(flag: string, formData: FormData): never {
+  const params = new URLSearchParams();
+  const ret = formData.get("returnStatus");
+  if (ret === "DRAFT" || ret === "PUBLISHED") params.set("status", ret);
+  params.set(flag, "1");
+  return redirect(`/admin/articles?${params.toString()}`);
+}
+
 export async function createArticleAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const blocks = parseBlocksField(formData.get("blocks"));
@@ -68,32 +81,45 @@ export async function updateArticleAction(
   });
   revalidatePath("/admin/articles");
   revalidatePath("/", "layout");
-  redirect(`/admin/articles/${id}`);
+  // ?saved=1 memicu banner "Perubahan tersimpan." di halaman edit:
+  // tanpa itu, redirect balik ke halaman yang persis sama membuat
+  // penyimpanan yang berhasil terlihat seperti tidak terjadi apa-apa.
+  redirect(`/admin/articles/${id}?saved=1`);
 }
 
-export async function publishArticleAction(id: string): Promise<void> {
+export async function publishArticleAction(
+  id: string,
+  formData: FormData,
+): Promise<void> {
   await requireAdmin();
   await publishContent(id);
   revalidatePath("/admin/articles");
   revalidatePath("/", "layout");
   revalidatePath("/sitemap.xml");
-  redirect("/admin/articles");
+  // Parameter memicu banner sukses di daftar artikel.
+  articlesRedirect("published", formData);
 }
 
-export async function unpublishArticleAction(id: string): Promise<void> {
+export async function unpublishArticleAction(
+  id: string,
+  formData: FormData,
+): Promise<void> {
   await requireAdmin();
   await unpublishContent(id);
   revalidatePath("/admin/articles");
   revalidatePath("/", "layout");
   revalidatePath("/sitemap.xml");
-  redirect("/admin/articles");
+  articlesRedirect("unpublished", formData);
 }
 
-export async function deleteArticleAction(id: string): Promise<void> {
+export async function deleteArticleAction(
+  id: string,
+  formData: FormData,
+): Promise<void> {
   await requireAdmin();
   await deleteContent(id);
   revalidatePath("/admin/articles");
   revalidatePath("/", "layout");
   revalidatePath("/sitemap.xml");
-  redirect("/admin/articles");
+  articlesRedirect("deleted", formData);
 }

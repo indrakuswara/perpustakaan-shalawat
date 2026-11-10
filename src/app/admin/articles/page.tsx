@@ -8,6 +8,8 @@ import {
   deleteArticleAction,
 } from "./actions";
 import DeleteArticleButton from "./DeleteArticleButton";
+import Notice from "../Notice";
+import SubmitButton from "../SubmitButton";
 
 const STATUS_LABEL: Record<ContentStatus, string> = {
   DRAFT: "Draft",
@@ -26,7 +28,12 @@ function statusBadge(status: ContentStatus) {
 export default async function ArticlesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    published?: string;
+    unpublished?: string;
+    deleted?: string;
+  }>;
 }) {
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login?next=%2Fadmin%2Farticles");
@@ -37,6 +44,10 @@ export default async function ArticlesPage({
       ? params.status
       : undefined;
   const articles = await listContents(filter ? { status: filter } : {});
+  // "Tutup" banner kembali ke daftar ini tanpa parameter sukses,
+  // dengan filter status yang sedang aktif dipertahankan.
+  const dismissHref =
+    "/admin/articles" + (filter ? `?status=${filter}` : "");
 
   return (
     <main className="min-h-screen bg-stone-100 px-4 py-10">
@@ -60,6 +71,28 @@ export default async function ArticlesPage({
             + Tulis artikel
           </Link>
         </div>
+
+        {(params.published === "1" ||
+          params.unpublished === "1" ||
+          params.deleted === "1") && (
+          <div className="mt-6">
+            {params.published === "1" && (
+              <Notice
+                message="Artikel berhasil dipublish."
+                dismissHref={dismissHref}
+              />
+            )}
+            {params.unpublished === "1" && (
+              <Notice
+                message="Artikel kembali menjadi draft."
+                dismissHref={dismissHref}
+              />
+            )}
+            {params.deleted === "1" && (
+              <Notice message="Artikel dihapus." dismissHref={dismissHref} />
+            )}
+          </div>
+        )}
 
         <div className="mt-6 flex gap-2">
           {[
@@ -140,29 +173,42 @@ export default async function ArticlesPage({
                     action={publishArticleAction.bind(null, a.id)}
                     className="inline"
                   >
-                    <button
-                      type="submit"
+                    {filter && (
+                      <input
+                        type="hidden"
+                        name="returnStatus"
+                        value={filter}
+                      />
+                    )}
+                    <SubmitButton
+                      label="Publish"
+                      pendingLabel="Mempublish…"
                       className="rounded-lg bg-emerald-800 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-900"
-                    >
-                      Publish
-                    </button>
+                    />
                   </form>
                 ) : (
                   <form
                     action={unpublishArticleAction.bind(null, a.id)}
                     className="inline"
                   >
-                    <button
-                      type="submit"
+                    {filter && (
+                      <input
+                        type="hidden"
+                        name="returnStatus"
+                        value={filter}
+                      />
+                    )}
+                    <SubmitButton
+                      label="Unpublish"
+                      pendingLabel="Menjadikan draft…"
                       className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800 transition hover:bg-amber-100"
-                    >
-                      Unpublish
-                    </button>
+                    />
                   </form>
                 )}
                 <DeleteArticleButton
                   title={a.title}
                   status={a.status}
+                  returnStatus={filter}
                   deleteAction={deleteArticleAction.bind(null, a.id)}
                 />
               </div>

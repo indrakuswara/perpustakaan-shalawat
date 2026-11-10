@@ -107,6 +107,9 @@ test.describe.serial("admin CRUD lifecycle", () => {
         ),
         page.getByRole("button", { name: "Simpan perubahan" }).click(),
       ]);
+      // Umpan balik sukses (temuan UX 2026-11-10): tombol simpan tadinya
+      // diam tanpa pesan apa pun, padahal penyimpanan sudah terjadi.
+      await expect(page.getByText("Perubahan tersimpan.")).toBeVisible();
     });
     await test.step("Verifikasi deskripsi baru di pratinjau", async () => {
       await page.goto(`/admin/articles/${articleId}/preview`);
@@ -114,10 +117,52 @@ test.describe.serial("admin CRUD lifecycle", () => {
     });
   });
 
+  test("save shows pending state while the request is in flight", async ({
+    page,
+  }) => {
+    test.skip(articleId === null, "create step did not produce an article id");
+    await test.step("Simpan dengan POST yang diperlambat", async () => {
+      await page.goto(`/admin/articles/${articleId}`);
+      // Isi ulang deskripsi yang sama supaya langkah ini tidak mengubah
+      // data yang diasumsikan test berikutnya.
+      await page.locator("#description").fill(editedDescription);
+      // Perlambat POST server action supaya status pending sempat
+      // teramati: tanpa penundaan ini aksi lokal selesai terlalu cepat
+      // untuk membuktikan label pending + disabled.
+      await page.route(
+        (url) =>
+          url.pathname === `/admin/articles/${articleId}` &&
+          url.search === "",
+        async (route) => {
+          if (route.request().method() !== "POST") {
+            await route.continue();
+            return;
+          }
+          await new Promise((r) => setTimeout(r, 1000));
+          await route.continue();
+        },
+      );
+      await page
+        .getByRole("button", { name: "Simpan perubahan" })
+        .click();
+      const pendingButton = page.getByRole("button", {
+        name: "Menyimpan…",
+      });
+      await expect(pendingButton).toBeVisible();
+      await expect(pendingButton).toBeDisabled();
+    });
+    await test.step("Banner sukses muncul sesudah request selesai", async () => {
+      await expect(page.getByText("Perubahan tersimpan.")).toBeVisible();
+    });
+  });
+
   test("publishes the article and it appears publicly", async ({ page }) => {
     test.skip(articleId === null, "create step did not produce an article id");
     await test.step("Publish artikel", async () => {
       await publishArticle(page, articleId!);
+      await expect(
+        page.getByText("Artikel berhasil dipublish."),
+      ).toBeVisible();
     });
     await test.step("Verifikasi kartu di daftar shalawat", async () => {
       await page.goto("/shalawat");
@@ -145,6 +190,9 @@ test.describe.serial("admin CRUD lifecycle", () => {
     test.skip(articleId === null, "create step did not produce an article id");
     await test.step("Jadikan draft lagi", async () => {
       await unpublishArticle(page, articleId!);
+      await expect(
+        page.getByText("Artikel kembali menjadi draft."),
+      ).toBeVisible();
     });
     await test.step("Verifikasi artikel hilang dari publik", async () => {
       const detail = await request.get(`/baca/${slug}`);
@@ -154,11 +202,32 @@ test.describe.serial("admin CRUD lifecycle", () => {
     });
   });
 
+  test("publishes from the list and keeps the filter", async ({ page }) => {
+    test.skip(articleId === null, "create step did not produce an article id");
+    await test.step("Publish dari daftar dengan filter Draft", async () => {
+      await page.goto("/admin/articles?status=DRAFT");
+      const card = page
+        .locator("div.rounded-2xl", {
+          has: page.locator("h2", { hasText: title }),
+        })
+        .first();
+      await card
+        .getByRole("button", { name: "Publish", exact: true })
+        .click();
+      // Redirect mempertahankan filter (temuan reviewer I3).
+      await expect(page).toHaveURL(/status=DRAFT&published=1/);
+      await expect(
+        page.getByText("Artikel berhasil dipublish."),
+      ).toBeVisible();
+    });
+  });
+
   test("deletes the article", async ({ page }) => {
     test.skip(articleId === null, "create step did not produce an article id");
     await test.step("Hapus artikel permanen", async () => {
       await deleteArticle(page, articleId!);
       deleted = true;
+      await expect(page.getByText("Artikel dihapus.")).toBeVisible();
     });
     await test.step("Verifikasi artikel hilang dari daftar admin", async () => {
       await page.goto("/admin/articles");

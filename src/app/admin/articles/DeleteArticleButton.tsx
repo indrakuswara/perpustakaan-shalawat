@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ContentStatus } from "@/lib/db";
+import SubmitButton from "../SubmitButton";
 
 // Tombol "Hapus" artikel dengan dialog konfirmasi. Menggantikan form
 // hapus langsung yang pernah membuat artikel published terhapus tanpa
@@ -10,11 +12,17 @@ import { useEffect, useState } from "react";
 export default function DeleteArticleButton({
   title,
   status,
+  returnStatus,
   deleteAction,
 }: {
   title: string;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
-  deleteAction: () => Promise<void>;
+  // Filter status aktif di daftar pemanggil (bila ada): diteruskan
+  // sebagai hidden input supaya redirect sesudah hapus tidak me-reset
+  // filter (temuan reviewer I3). Nilai yang bukan DRAFT/PUBLISHED
+  // diabaikan oleh action.
+  returnStatus?: ContentStatus;
+  deleteAction: (formData: FormData) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -80,12 +88,18 @@ export default function DeleteArticleButton({
                 Batal
               </button>
               <form action={deleteAction} className="inline">
-                <button
-                  type="submit"
+                {returnStatus && (
+                  <input
+                    type="hidden"
+                    name="returnStatus"
+                    value={returnStatus}
+                  />
+                )}
+                <SubmitButton
+                  label="Hapus permanen"
+                  pendingLabel="Menghapus…"
                   className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
-                >
-                  Hapus permanen
-                </button>
+                />
               </form>
             </div>
           </div>

@@ -93,7 +93,7 @@ export async function publishArticle(page: Page, id: string): Promise<void> {
   await page
     .getByRole("button", { name: "Publish sekarang" })
     .click();
-  await page.waitForURL("/admin/articles");
+  await page.waitForURL(/\/admin\/articles(\?.*)?$/);
 }
 
 export async function unpublishArticle(page: Page, id: string): Promise<void> {
@@ -101,7 +101,7 @@ export async function unpublishArticle(page: Page, id: string): Promise<void> {
   const button = page.getByRole("button", { name: "Jadikan draft lagi" });
   if (await button.count()) {
     await button.click();
-    await page.waitForURL("/admin/articles");
+    await page.waitForURL(/\/admin\/articles(\?.*)?$/);
   }
 }
 
@@ -126,7 +126,7 @@ export async function deleteArticle(page: Page, id: string): Promise<void> {
   await page
     .getByRole("button", { name: "Hapus permanen" })
     .click();
-  await page.waitForURL("/admin/articles");
+  await page.waitForURL(/\/admin\/articles(\?.*)?$/);
 }
 
 // Best-effort cleanup used from afterAll. It only ever deletes the

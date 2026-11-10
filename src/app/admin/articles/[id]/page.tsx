@@ -3,6 +3,8 @@ import { redirect, notFound } from "next/navigation";
 import { getCurrentAdmin } from "@/lib/auth";
 import { getContentById } from "@/lib/db";
 import ArticleForm from "../ArticleForm";
+import Notice from "../../Notice";
+import SubmitButton from "../../SubmitButton";
 import {
   updateArticleAction,
   publishArticleAction,
@@ -13,13 +15,16 @@ import DeleteArticleButton from "../DeleteArticleButton";
 
 export default async function EditArticlePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ saved?: string }>;
 }) {
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
 
   const { id } = await params;
+  const sp = await searchParams;
   const article = await getContentById(id);
   if (!article) notFound();
 
@@ -47,6 +52,15 @@ export default async function EditArticlePage({
           </span>
         </div>
 
+        {sp.saved === "1" && (
+          <div className="mt-4">
+            <Notice
+              message="Perubahan tersimpan."
+              dismissHref={`/admin/articles/${article.id}`}
+            />
+          </div>
+        )}
+
         <div className="mt-4 rounded-2xl border border-stone-200 bg-white p-6">
           <ArticleForm
             action={updateArticleAction.bind(null, article.id)}
@@ -68,24 +82,22 @@ export default async function EditArticlePage({
                   action={publishArticleAction.bind(null, article.id)}
                   className="inline"
                 >
-                  <button
-                    type="submit"
+                  <SubmitButton
+                    label="Publish sekarang"
+                    pendingLabel="Mempublish…"
                     className="rounded-lg bg-emerald-800 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-900"
-                  >
-                    Publish sekarang
-                  </button>
+                  />
                 </form>
               ) : (
                 <form
                   action={unpublishArticleAction.bind(null, article.id)}
                   className="inline"
                 >
-                  <button
-                    type="submit"
+                  <SubmitButton
+                    label="Jadikan draft lagi"
+                    pendingLabel="Menjadikan draft…"
                     className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800 transition hover:bg-amber-100"
-                  >
-                    Jadikan draft lagi
-                  </button>
+                  />
                 </form>
               )}
               <DeleteArticleButton

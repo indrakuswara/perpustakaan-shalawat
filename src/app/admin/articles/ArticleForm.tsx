@@ -1,5 +1,6 @@
 import type { ContentRow, ContentType } from "@/lib/db";
 import BlocksEditor from "./BlocksEditor";
+import SubmitButton from "../SubmitButton";
 import { inputCls } from "./formStyles";
 
 export { inputCls };
@@ -8,10 +9,12 @@ export default function ArticleForm({
   action,
   initial,
   submitLabel,
+  pendingLabel = "Menyimpan…",
 }: {
   action: (formData: FormData) => Promise<void>;
   initial?: ContentRow;
   submitLabel: string;
+  pendingLabel?: string;
 }) {
   const type: ContentType = initial?.type ?? "SHALAWAT";
   return (
@@ -78,12 +81,11 @@ export default function ArticleForm({
         </p>
       </div>
 
-      <button
-        type="submit"
+      <SubmitButton
+        label={submitLabel}
+        pendingLabel={pendingLabel}
         className="w-full rounded-lg bg-emerald-800 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-900"
-      >
-        {submitLabel}
-      </button>
+      />
     </form>
   );
 }
