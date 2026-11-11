@@ -115,6 +115,99 @@ test.describe("hidden admin automation report", () => {
     ).toBeVisible();
   });
 
+  test("screenshot opens a lightbox and closes with X", async ({
+    page,
+    request,
+  }) => {
+    // Localhost only: test ini POST ringkasan ke DB lokal.
+    const base = process.env.PLAYWRIGHT_BASE_URL ?? "";
+    test.skip(
+      !base.includes("localhost") && !base.includes("127.0.0.1"),
+      "POST test only runs against a local test server",
+    );
+    const token = process.env.AUTOMATION_REPORT_TOKEN ?? "";
+    test.skip(!token, "AUTOMATION_REPORT_TOKEN is not set");
+    const runKey = `e2e-lightbox-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+    const workflow = `Test Lightbox ${runKey}`;
+    // Proxy screenshot punya SSRF guard: hanya URL
+    // *.blob.vercel-storage.com yang benar-benar dimuat. URL di
+    // bawah ini lolos validasi POST (https) tapi akan 404 di proxy,
+    // jadi request gambarnya dipenuhi langsung di sini dengan PNG
+    // 1x1 — yang diuji adalah perilaku lightbox-nya, bukan jalur
+    // muat Blob (jalur itu dibuktikan smoke production).
+    const png1x1 = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AAwMCAO+ip1sAAAAASUVORK5CYII=",
+      "base64",
+    );
+    await page.route(
+      (url) => url.pathname === "/api/automation-screenshot",
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "image/png",
+          body: png1x1,
+        });
+      },
+    );
+    const response = await request.post("/api/automation-report", {
+      headers: { "x-automation-token": token },
+      data: {
+        runKey,
+        workflow,
+        trigger: "test",
+        status: "passed",
+        commitSha: "abc1234",
+        actor: "test-owner",
+        actionsUrl:
+          "https://github.com/indrakuswara/perpustakaan-shalawat/actions/runs/1",
+        passed: 1,
+        failed: 0,
+        skipped: 0,
+        failedTests: [],
+        tests: [
+          {
+            title: "Contoh tes lolos",
+            status: "passed",
+            steps: [],
+            screenshot: "https://e2e-test.blob.vercel-storage.com/lightbox.png",
+          },
+        ],
+        cleanupStatus: "clean",
+      },
+    });
+    expect(response.ok()).toBeTruthy();
+    await loginAsAdmin(page);
+    await page.goto("/admin/automationreport");
+    const card = page.locator("article", { hasText: workflow }).first();
+    await expect(card.getByText(workflow)).toBeVisible();
+    await card.getByText("Lihat 1 tes").click();
+    const thumbnail = card.getByRole("button", {
+      name: "Perbesar screenshot",
+    });
+    await expect(thumbnail).toBeVisible();
+    await thumbnail.click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator("img")).toBeVisible();
+    // Tutup via tombol X, dan fokus kembali ke thumbnail.
+    await page.getByRole("button", { name: "Tutup" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(thumbnail).toBeFocused();
+    // Tutup via Escape.
+    await thumbnail.click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    // Tutup via klik backdrop (sudut kiri atas, di luar dialog).
+    await thumbnail.click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.mouse.click(20, 20);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(thumbnail).toBeFocused();
+  });
+
   test("renders a fallback note when a summary has no per-test detail", async ({
     page,
     request,
