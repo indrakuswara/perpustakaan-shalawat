@@ -3,14 +3,6 @@ import Link from "next/link";
 export default function NotFoundContent() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-20 text-center md:py-28">
-      <p
-        aria-hidden
-        className="font-serif text-5xl text-emerald-900/60"
-        dir="rtl"
-        lang="ar"
-      >
-        ✦
-      </p>
       <h1 className="mt-6 font-serif text-3xl font-semibold text-stone-900">
         Halaman tidak ditemukan
       </h1>

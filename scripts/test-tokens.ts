@@ -126,5 +126,20 @@ ok(
   !siteLayout.includes("font-geist"),
 );
 
+console.log("== print tokens (globals.css + PrintView.tsx) ==");
+
+const printView = readFileSync("src/components/site/PrintView.tsx", "utf8");
+ok(
+  "print: .print-card border uses var(--line)",
+  css.includes("border: 1px solid var(--line)"),
+);
+ok(
+  "print: .print-card left border uses the emerald token",
+  css.includes("border-left: 4px solid var(--emerald-900)"),
+);
+ok("print: globals.css has no #e9e4d8", !css.includes("#e9e4d8"));
+ok("print: PrintView has no #0b3d2e", !printView.includes("#0b3d2e"));
+ok("print: PrintView has no #e7d9ae", !printView.includes("#e7d9ae"));
+
 console.log(`\n${passed} lulus, ${failed} gagal`);
 process.exit(failed ? 1 : 0);

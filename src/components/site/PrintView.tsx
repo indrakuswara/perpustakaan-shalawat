@@ -23,13 +23,13 @@ export default function PrintView({
   return (
     <div>
       <header>
-        <p className="text-[8.5pt] font-bold tracking-[0.42em] text-[#0b3d2e] uppercase">
+        <p className="text-[8.5pt] font-bold tracking-[0.42em] text-emerald-900 uppercase">
           {typeLabel}
         </p>
         <h1 className="mt-2 font-serif text-[28pt] leading-[1.12] font-semibold text-[#14231f]">
           {title}
         </h1>
-        <div className="mt-4 h-[1.6mm] w-[26mm] bg-[#cfa52f]" aria-hidden />
+        <div className="mt-4 h-[1.6mm] w-[26mm] bg-gold" aria-hidden />
         {description && (
           <p className="mt-4 font-serif text-[10.5pt] leading-relaxed text-stone-600 italic md:text-justify">
             {description}
@@ -42,10 +42,10 @@ export default function PrintView({
           <section key={`${section.title}-${i}`} className={i > 0 ? "mt-9" : "mt-7"}>
             {showSectionHead(section.title) && (
               <div className="print-section-head mb-4">
-                <h2 className="font-serif text-[15pt] font-semibold text-[#0b3d2e]">
+                <h2 className="font-serif text-[15pt] font-semibold text-emerald-900">
                   {section.title}
                 </h2>
-                <div className="mt-2 h-px w-full bg-[#e7d9ae]" aria-hidden />
+                <div className="mt-2 h-px w-full bg-gold" aria-hidden />
               </div>
             )}
             <div className="flex flex-col gap-[3.6mm]">
@@ -98,9 +98,8 @@ export default function PrintView({
 
       <footer className="print-footer">
         <span>
-          <strong className="text-[#0b3d2e]">Perpustakaan Digital Shalawat &amp; Maulid</strong>
+          <strong className="text-emerald-900">Perpustakaan Digital Shalawat &amp; Maulid</strong>
         </span>
-        <span className="text-[#cfa52f]">◆</span>
         <span>{siteUrl.replace(/^https?:\/\//, "")}</span>
       </footer>
     </div>

@@ -49,11 +49,11 @@ function RequestFormInner({
 
   if (state.status === "found") {
     return (
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
-        <h2 className="font-serif text-xl font-semibold text-emerald-950">
+      <div className="rounded-2xl border border-line bg-panel p-6">
+        <h2 className="font-display text-xl font-semibold text-ink">
           Sudah tersedia!
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-emerald-900">
+        <p className="mt-2 text-sm leading-relaxed text-english">
           Judul yang kamu cari ternyata sudah ada di koleksi kami:
         </p>
         <ul className="mt-3 space-y-2">
@@ -61,21 +61,21 @@ function RequestFormInner({
             <li key={a.slug}>
               <Link
                 href={`/baca/${a.slug}`}
-                className="font-medium text-emerald-900 underline decoration-emerald-300 underline-offset-2 transition hover:decoration-emerald-700"
+                className="font-medium text-emerald-900 underline decoration-gold underline-offset-2 transition hover:decoration-emerald-700"
               >
                 {a.title}
               </Link>
             </li>
           ))}
         </ul>
-        <p className="mt-4 text-sm leading-relaxed text-emerald-900">
+        <p className="mt-4 text-sm leading-relaxed text-english">
           Kalau bukan ini yang kamu maksud, coba tulis judulnya lebih
           spesifik lalu kirim lagi.
         </p>
         <button
           type="button"
           onClick={onReset}
-          className="mt-4 inline-block rounded-lg border border-emerald-800 px-4 py-2 text-sm font-medium text-emerald-900 transition hover:bg-emerald-100"
+          className="mt-4 inline-block rounded-lg border border-emerald-800 px-4 py-2 text-sm font-medium text-emerald-900 transition hover:bg-panel"
         >
           Kirim request lain
         </button>
@@ -89,7 +89,7 @@ function RequestFormInner({
         ? {
             title: "Terima kasih!",
             body: "Request kamu sudah kami terima dan akan ditinjau secara manual. Tidak semua request bisa kami penuhi, tapi semuanya kami baca.",
-            cls: "border-emerald-200 bg-emerald-50 text-emerald-900",
+            cls: "border-line bg-panel text-english",
           }
         : state.status === "duplicate"
           ? {
@@ -104,7 +104,7 @@ function RequestFormInner({
             };
     return (
       <div className={`rounded-2xl border p-6 ${panel.cls}`}>
-        <h2 className="font-serif text-xl font-semibold">{panel.title}</h2>
+        <h2 className="font-display text-xl font-semibold text-ink">{panel.title}</h2>
         <p className="mt-2 text-sm leading-relaxed">{panel.body}</p>
         <button
           type="button"

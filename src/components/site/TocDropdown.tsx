@@ -9,20 +9,30 @@ export type TocKind = "bait" | "bagian";
 // nomor memakai --gold-deep. Untuk daftar bait, labelnya sendiri sudah
 // "Bait n" sehingga angkanya diwarnai di dalam label; untuk daftar
 // bagian, nomor urut ditampilkan di depan judul (aria-hidden).
+// `onNavigate` menutup dropdown mobile sesudah tautan diklik (panel
+// desktop tidak memakainya); `liClassName`/`linkClassName` menimpa
+// geometri desktop bila pemanggil butuh tampilan lain (dropdown).
 export function TocListItems({
   items,
   kind,
+  onNavigate,
+  liClassName = "text-sm",
+  linkClassName = "text-muted transition hover:text-ink",
 }: {
   items: TocItem[];
   kind: TocKind;
+  onNavigate?: () => void;
+  liClassName?: string;
+  linkClassName?: string;
 }) {
   return (
     <>
       {items.map((item, i) => (
-        <li key={item.id} className="text-sm">
+        <li key={item.id} className={liClassName || undefined}>
           <a
             href={`#${item.id}`}
-            className="text-muted transition hover:text-ink"
+            onClick={onNavigate}
+            className={linkClassName}
           >
             {kind === "bait" ? (
               <>
@@ -78,28 +88,13 @@ export default function TocDropdown({
             id="toc-dropdown-list"
             className="max-h-72 space-y-1 overflow-y-auto border-t border-line px-4 py-2"
           >
-            {items.map((item, i) => (
-              <li key={item.id}>
-                <a
-                  href={`#${item.id}`}
-                  onClick={() => setOpen(false)}
-                  className="block py-2 text-sm text-muted transition hover:text-ink"
-                >
-                  {kind === "bait" ? (
-                    <>
-                      Bait <span className="text-gold-deep">{i + 1}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span aria-hidden className="mr-2 text-gold-deep">
-                        {i + 1}.
-                      </span>
-                      {item.label}
-                    </>
-                  )}
-                </a>
-              </li>
-            ))}
+            <TocListItems
+              items={items}
+              kind={kind}
+              onNavigate={() => setOpen(false)}
+              liClassName=""
+              linkClassName="block py-2 text-sm text-muted transition hover:text-ink"
+            />
           </ol>
         )}
       </div>
