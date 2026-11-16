@@ -1,6 +1,6 @@
 // Unit test homepage photos and their recorded sources
 // (public/images/*.jpg + public/images/SOURCES.md).
-// Dijalankan: node scripts/test-images.ts
+// Dijalankan: node --experimental-strip-types scripts/test-images.ts
 import { existsSync, readFileSync } from "node:fs";
 
 let passed = 0;
@@ -33,21 +33,37 @@ for (const f of FILES) {
 console.log("== SOURCES.md records source, license, and URL ==");
 
 const md = readFileSync("public/images/SOURCES.md", "utf8");
+const lines = md.split(/\r?\n/);
+// Table row for a file: the line starting with `| <filename> | ...`
+// Provenance is checked within THAT row only, so a row missing its own
+// source, license, or URL cannot hide behind the intro or other rows.
+function rowFor(f: string): string | undefined {
+  return lines.find((line) => line.startsWith(`| ${f} |`));
+}
 for (const f of FILES) {
+  const row = rowFor(f);
   ok(
     `SOURCES.md records ${f} with source, license, and URL`,
-    md.includes(f) &&
-      /sumber|source/i.test(md) &&
-      /lisensi|license/i.test(md) &&
-      md.includes("http"),
+    row !== undefined &&
+      row.includes("Pexels") &&
+      row.includes("Pexels License") &&
+      row.includes("http"),
   );
 }
 
 console.log("== Makna photo is not the Sheikh Zayed hero ==");
 
+// Whole Makna table line, not just the filename cell: the old regex
+// stopped at the first `|` after the filename, so it could never match
+// a wrong mosque name in the description cell.
+const maknaRow = rowFor("makna-masjid.jpg") ?? "";
 ok(
   "SOURCES.md row for makna-masjid.jpg does not mention sheikh zayed",
-  !/makna-masjid\.jpg[^|]*sheikh zayed/i.test(md),
+  !/sheikh zayed/i.test(maknaRow),
+);
+ok(
+  "SOURCES.md row for makna-masjid.jpg names a different mosque (Masjid Biru)",
+  /masjid biru|blue mosque/i.test(maknaRow),
 );
 
 console.log(`\n${passed} lulus, ${failed} gagal`);
