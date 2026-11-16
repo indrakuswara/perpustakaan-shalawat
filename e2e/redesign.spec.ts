@@ -322,6 +322,11 @@ test.describe("homepage justify", () => {
   };
 
   test.beforeAll(async ({ browser }) => {
+    // Production guard (reviewer fix): every test in this describe
+    // skips on production, so setup must not publish a temp article
+    // there either — beforeAll would otherwise create live pollution
+    // for tests that all skip.
+    if (isProductionTarget) return;
     if (!process.env.E2E_ADMIN_EMAIL || !process.env.E2E_ADMIN_PASSWORD) {
       return;
     }
@@ -462,6 +467,36 @@ test.describe("homepage justify", () => {
       }
     });
     await test.step("Tidak ada overflow horizontal di 392px", async () => {
+      const r = await page.evaluate(() => ({
+        sw: document.documentElement.scrollWidth,
+        iw: window.innerWidth,
+      }));
+      expect(r.sw).toBe(r.iw);
+    });
+  });
+
+  // Pin the md boundary precisely: Tailwind md is min-width 768px,
+  // so at 767px the text must still be left/start, not justify.
+  test("teks Koleksi, Terbaru, dan Makna rata kiri di 767px", async ({
+    page,
+  }) => {
+    skipIfNoTempArticle();
+    await test.step("Buka beranda di 767px", async () => {
+      await page.setViewportSize({ width: 767, height: 800 });
+      await page.goto("/");
+    });
+    await test.step("Ketiga bagian rata kiri di 767px", async () => {
+      for (const heading of [
+        "Koleksi Pilihan",
+        "Terbaru",
+        "Lebih dari Sekadar Lantunan. Kenali Maknanya.",
+      ]) {
+        const aligns = await sectionAligns(page, heading);
+        expect(aligns.length).toBeGreaterThanOrEqual(1);
+        for (const a of aligns) expect(["left", "start"]).toContain(a);
+      }
+    });
+    await test.step("Tidak ada overflow horizontal di 767px", async () => {
       const r = await page.evaluate(() => ({
         sw: document.documentElement.scrollWidth,
         iw: window.innerWidth,
