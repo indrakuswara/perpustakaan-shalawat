@@ -69,7 +69,7 @@ export default function PrintView({
                     </p>
                   )}
                   {unit.english && (
-                    <p lang="en" className="mt-1 text-[9pt] text-stone-400 italic">
+                    <p lang="en" className="mt-1 text-[9pt] text-english italic">
                       {unit.english}
                     </p>
                   )}

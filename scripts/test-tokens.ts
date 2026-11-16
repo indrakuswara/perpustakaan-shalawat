@@ -150,6 +150,10 @@ ok(
 console.log("== print tokens (globals.css + PrintView.tsx) ==");
 
 const printView = readFileSync("src/components/site/PrintView.tsx", "utf8");
+const printToolbar = readFileSync(
+  "src/components/site/PrintToolbar.tsx",
+  "utf8",
+);
 ok(
   "print: .print-card border uses var(--line)",
   css.includes("border: 1px solid var(--line)"),
@@ -162,6 +166,51 @@ ok("print: globals.css has no #e9e4d8", !css.includes("#e9e4d8"));
 ok("print: PrintView has no #0b3d2e", !printView.includes("#0b3d2e"));
 ok("print: PrintView has no #e7d9ae", !printView.includes("#e7d9ae"));
 ok("print: PrintView has no teal-", !printView.includes("teal-"));
+
+// Follow-up (j): PrintToolbar harus pakai token, bukan hex mentah.
+ok(
+  "print: PrintToolbar has no raw hex colour",
+  !/#[0-9a-fA-F]{3,8}\b/.test(printToolbar),
+);
+ok(
+  "print: PrintToolbar has no #0b3d2e",
+  !printToolbar.includes("#0b3d2e"),
+);
+ok(
+  "print: PrintToolbar has no #cfa52f",
+  !printToolbar.includes("#cfa52f"),
+);
+ok(
+  "print: PrintToolbar has no #dcb845",
+  !printToolbar.includes("#dcb845"),
+);
+ok(
+  "print: PrintToolbar toolbar background uses bg-emerald-950",
+  printToolbar.includes("bg-emerald-950"),
+);
+ok(
+  "print: PrintToolbar button uses bg-gold",
+  printToolbar.includes("bg-gold"),
+);
+ok(
+  "print: PrintToolbar button text uses text-emerald-950",
+  printToolbar.includes("text-emerald-950"),
+);
+ok(
+  "print: PrintToolbar button hover uses hover:bg-gold-soft",
+  printToolbar.includes("hover:bg-gold-soft"),
+);
+
+// Follow-up (k): lapis English di kartu cetak memakai token --english
+// (#3d4a43, 9,3:1), bukan text-stone-400 (~2,2:1).
+ok(
+  "print: PrintView has no text-stone-400",
+  !printView.includes("text-stone-400"),
+);
+ok(
+  "print: PrintView English line uses text-english",
+  /<p lang="en" className="[^"]*text-english[^"]*"/.test(printView),
+);
 
 console.log(`\n${passed} lulus, ${failed} gagal`);
 process.exit(failed ? 1 : 0);

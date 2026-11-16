@@ -26,7 +26,7 @@ export default function PrintToolbar({ slug }: { slug: string }) {
   }, []);
 
   return (
-    <div className="bg-[#0b3d2e] text-emerald-50 print:hidden">
+    <div className="bg-emerald-950 text-emerald-50 print:hidden">
       <div className="mx-auto flex max-w-[210mm] flex-wrap items-center gap-3 px-4 py-3">
         <p className="min-w-0 flex-1 text-sm leading-snug">
           Pratinjau cetak. Di dialog print, pilih tujuan{" "}
@@ -37,7 +37,7 @@ export default function PrintToolbar({ slug }: { slug: string }) {
         <button
           type="button"
           onClick={() => window.print()}
-          className="rounded-full bg-[#cfa52f] px-4 py-2 text-sm font-semibold text-[#0b3d2e] hover:bg-[#dcb845]"
+          className="rounded-full bg-gold px-4 py-2 text-sm font-semibold text-emerald-950 hover:bg-gold-soft"
         >
           Unduh PDF
         </button>
