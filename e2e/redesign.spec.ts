@@ -381,7 +381,14 @@ test.describe.serial("reading page temp shalawat", () => {
   // terpisah: dalam describe serial, satu test gagal membuat test
   // sisanya "did not run", jadi test backstop tidak pernah jalan
   // tepat pada jalur yang membutuhkannya (serial abort). afterAll
-  // selalu jalan walau test gagal. Cleanup-nya sendiri tetap
+  // selalu jalan walau test gagal — TAPI TIDAK bila worker test-nya
+  // crash (mis. OOM atau worker dibunuh): Playwright tidak
+  // menjalankan afterAll pada worker yang mati, jadi cleanup ini
+  // best-effort dalam arti itu juga. Tidak ada skrip sapu otomatis
+  // untuk sisa data dari worker crash; artikel sementara memakai
+  // judul bertanda `E2E TEST <runId>` (lihat testTitle di
+  // helpers.ts), jadi sisa itu masih bisa dikenali dan harus dihapus
+  // manual lewat /admin/articles. Cleanup-nya sendiri tetap
   // best-effort (cleanupArticle menelan kegagalan), tapi verifikasi
   // di bawah TIDAK dibungkus try/catch: bila judul masih terdaftar,
   // afterAll ini gagal keras dan kebocoran tidak lolos diam-diam.
@@ -570,8 +577,9 @@ test.describe.serial("reading page cross-section bait numbering", () => {
   };
 
   // Pola cleanup + verifikasi yang sama dengan blok temp shalawat di
-  // atas: afterAll selalu jalan walau test gagal, dan verifikasi
-  // TIDAK dibungkus try/catch supaya kebocoran gagal keras.
+  // atas: afterAll selalu jalan walau test gagal (kecuali worker
+  // crash — lihat komentar afterAll di blok temp shalawat di atas),
+  // dan verifikasi TIDAK dibungkus try/catch supaya kebocoran gagal keras.
   test.afterAll(async ({ browser }) => {
     if (!articleId) return;
     const context = await browser.newContext();
@@ -705,18 +713,19 @@ test.describe.serial("maulid related temp articles", () => {
   // terpisah: dalam describe serial, satu test gagal membuat test
   // sisanya "did not run", jadi test backstop tidak pernah jalan
   // tepat pada jalur yang membutuhkannya (serial abort). afterAll
-  // selalu jalan walau test gagal. Cleanup-nya sendiri tetap
-  // best-effort (cleanupArticles menelan kegagalan), tapi verifikasi
-  // di bawah TIDAK dibungkus try/catch: bila satu judul masih
-  // terdaftar, afterAll ini gagal keras dan kebocoran tidak lolos
-  // diam-diam. Verifikasi memakai sesi yang sama dengan cleanup di
-  // atas (tidak login ulang: /admin/login me-redirect ke dashboard
-  // bila sesi sudah login sehingga #email tidak ada). Bila login
-  // cleanup gagal diam-diam, goto /admin/articles me-redirect ke
-  // /admin/login dan assert di bawah gagal keras — itu yang
-  // diinginkan. Flag `deleted` dihapus: afterAll hanya jalan sekali
-  // dan deleteArticle sudah guard 404, jadi cleanup ini idempotent
-  // dan tidak butuh early-return berbasis flag.
+  // selalu jalan walau test gagal (kecuali worker crash — lihat
+  // komentar afterAll di blok temp shalawat di atas). Cleanup-nya
+  // sendiri tetap best-effort (cleanupArticles menelan kegagalan),
+  // tapi verifikasi di bawah TIDAK dibungkus try/catch: bila satu
+  // judul masih terdaftar, afterAll ini gagal keras dan kebocoran
+  // tidak lolos diam-diam. Verifikasi memakai sesi yang sama dengan
+  // cleanup di atas (tidak login ulang: /admin/login me-redirect ke
+  // dashboard bila sesi sudah login sehingga #email tidak ada).
+  // Bila login cleanup gagal diam-diam, goto /admin/articles
+  // me-redirect ke /admin/login dan assert di bawah gagal keras —
+  // itu yang diinginkan. Flag `deleted` dihapus: afterAll hanya jalan
+  // sekali dan deleteArticle sudah guard 404, jadi cleanup ini
+  // idempotent dan tidak butuh early-return berbasis flag.
   test.afterAll(async ({ browser }) => {
     if (articleIds.every((a) => a === null)) return;
     const context = await browser.newContext();
@@ -1285,6 +1294,10 @@ test.describe("list, search, request", () => {
 // Locator memakai kelas wrapper (flex min-h-screen): <body> juga
 // punya <div hidden=""> internal React sebagai anak pertama, jadi
 // "body > div" mentah menunjuk div yang salah.
+// /hadroh SENGAJA di luar cakupan fix ini: halaman dormant (page-nya
+// memanggil notFound()) dan tidak ditautkan dari mana pun, jadi test
+// ini tidak mengunjunginya dan latar kremnya sendiri (bg-[#fffefb])
+// dibiarkan apa adanya.
 test.describe("page background token", () => {
   test("public pages use the soft-green background token", async ({
     page,

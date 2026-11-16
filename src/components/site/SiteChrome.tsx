@@ -7,6 +7,13 @@ import { ReadingNavProvider } from "@/components/site/ReadingNavContext";
 // (absolute di atas hero gelap), "light" untuk halaman lain (static,
 // latar terang). Varian adalah prop supaya terpanggang dari struktur
 // route, bukan dari usePathname saat prerender — lihat SiteHeader.
+//
+// Latar halaman publik = token --bg (hijau lembut #e6f0e8) pada
+// wrapper di bawah (fix reviewer whole-branch C1: ganti stone-50
+// dengan bg-bg). /hadroh SENGAJA di luar cakupan fix ini: halaman
+// dormant (page-nya memanggil notFound()) dan tidak ditautkan dari
+// mana pun, jadi latar kremnya sendiri tidak disamakan dan tidak
+// dicakup test "page background token".
 export default function SiteChrome({
   variant,
   activeHref,
