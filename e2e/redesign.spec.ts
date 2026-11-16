@@ -117,3 +117,37 @@ test.describe("shared chrome", () => {
     });
   });
 });
+
+test.describe("cards and search", () => {
+  test("article card has no arrow and description guard holds", async ({
+    page,
+  }) => {
+    await test.step("Buka daftar shalawat", async () => {
+      await page.goto("/shalawat");
+    });
+    await test.step("Kartu tanpa panah", async () => {
+      const card = page.locator('a[href^="/baca/"]').first();
+      await expect(card).toBeVisible();
+      await expect(card).not.toContainText("→");
+    });
+    await test.step("Tidak ada paragraf kosong di kartu", async () => {
+      const emptyP = await page.locator('a[href^="/baca/"] p:empty').count();
+      expect(emptyP).toBe(0);
+    });
+  });
+
+  test("search submit is a magnifier icon, not text", async ({ page }) => {
+    await test.step("Buka beranda dan cek tombol cari", async () => {
+      await page.goto("/");
+      const btn = page.getByRole("button", { name: "Cari" });
+      await expect(btn).toBeVisible();
+      await expect(btn).not.toContainText("Cari");
+      await expect(btn.locator("svg")).toBeVisible();
+    });
+    await test.step("Submit tetap ke /search?q=", async () => {
+      await page.getByLabel("Cari artikel").fill("Qamarun");
+      await page.getByRole("button", { name: "Cari" }).click();
+      await expect(page).toHaveURL(/\/search\?q=Qamarun/);
+    });
+  });
+});
