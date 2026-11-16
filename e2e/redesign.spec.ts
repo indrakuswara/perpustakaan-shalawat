@@ -1369,6 +1369,10 @@ test.describe("print page", () => {
   test("print page renders token borders and emerald headings", async ({
     page,
   }) => {
+    // Pindai production di atas bisa mengunjungi puluhan kandidat
+    // sebelum ketemu yang cocok (atau tidak ada), jadi anggaran
+    // default 60 dtk bisa habis sebelum skip BEST-EFFORT tercapai.
+    test.setTimeout(180_000);
     let slug = "";
     if (isProductionTarget) {
       // Production memakai discovery: kartu pertama /shalawat bisa
