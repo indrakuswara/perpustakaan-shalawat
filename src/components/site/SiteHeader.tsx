@@ -29,10 +29,22 @@ function isActiveLink(pathname: string, href: string): boolean {
 // dari runtime pathname. usePathname() di sini hanya untuk penanda
 // link aktif — itu self-correcting (hydration / client-nav
 // memperbaikinya) dan tidak mengubah kelas posisi/background.
+//
+// activeHref ada karena alasan yang sama, untuk kasus route root:
+// usePathname() untuk "/" terpanggang kosong di build Vercel, sehingga
+// `isActiveLink(pathname, "/")` (= pathname === "/") false dan Beranda
+// tidak aktif di homepage live — padahal 10 detik retry Playwright
+// selalu tidak aktif, navigasi client-side ke "/" memperbaikinya, dan
+// full reload merusaknya lagi. (home) memasang activeHref="/" supaya
+// Beranda aktif terpanggang dari struktur route; (site) tidak memasang
+// activeHref dan mengandalkan usePathname/context, yang terbukti jalan
+// di /shalawat, /maulid, dan halaman baca.
 export default function SiteHeader({
   variant,
+  activeHref,
 }: {
   variant: "dark" | "light";
+  activeHref?: string | null;
 }) {
   const pathname = usePathname() ?? "";
   const [open, setOpen] = useState(false);
@@ -50,7 +62,11 @@ export default function SiteHeader({
         ? "/maulid"
         : null;
   const isActive = (href: string) =>
-    activeOverride ? href === activeOverride : isActiveLink(pathname, href);
+    activeHref !== undefined
+      ? href === activeHref
+      : activeOverride
+        ? href === activeOverride
+        : isActiveLink(pathname, href);
 
   const linkClass = (href: string) => {
     const active = isActive(href);

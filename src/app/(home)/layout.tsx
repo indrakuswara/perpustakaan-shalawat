@@ -18,5 +18,5 @@ export default function HomeLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <SiteChrome variant="dark">{children}</SiteChrome>;
+  return <SiteChrome variant="dark" activeHref="/">{children}</SiteChrome>;
 }

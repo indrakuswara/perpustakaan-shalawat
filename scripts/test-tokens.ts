@@ -112,7 +112,15 @@ ok(
 );
 ok(
   "header variant: (home) layout renders SiteChrome variant dark",
-  homeLayout.includes('<SiteChrome variant="dark">'),
+  homeLayout.includes('<SiteChrome variant="dark"'),
+);
+ok(
+  'header active nav: (home) layout pins activeHref="/" (usePathname bakes empty for root)',
+  homeLayout.includes('activeHref="/"'),
+);
+ok(
+  "header active nav: (site) layout has no activeHref (usePathname/context proven there)",
+  !siteLayout.includes("activeHref"),
 );
 
 console.log("== removed values are gone ==");

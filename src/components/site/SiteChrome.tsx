@@ -9,9 +9,11 @@ import { ReadingNavProvider } from "@/components/site/ReadingNavContext";
 // route, bukan dari usePathname saat prerender — lihat SiteHeader.
 export default function SiteChrome({
   variant,
+  activeHref,
   children,
 }: {
   variant: "dark" | "light";
+  activeHref?: string | null;
   children: React.ReactNode;
 }) {
   return (
@@ -23,7 +25,7 @@ export default function SiteChrome({
         Lewati ke konten
       </a>
       <ReadingNavProvider>
-        <SiteHeader variant={variant} />
+        <SiteHeader variant={variant} activeHref={activeHref} />
         <div id="konten" className="flex-1">
           {children}
         </div>
