@@ -157,3 +157,72 @@ test.describe("cards and search", () => {
     });
   });
 });
+
+test.describe("homepage", () => {
+  test("homepage sections render in order", async ({ page }) => {
+    await test.step("Buka beranda", async () => {
+      await page.goto("/");
+    });
+    // Pita Daily Inspiration hanya dirender bila pool bait tidak
+    // kosong (spec 11.1): pool butuh unit Arab, dan artikel seed lokal
+    // tidak punya satu pun. Cek keberadaannya di luar step (skip dari
+    // dalam callback step bukan pola yang didokumentasikan).
+    const ribbon = page.getByRole("heading", {
+      name: "Satu Hari, Satu Lantunan",
+    });
+    const hasRibbon = (await ribbon.count()) > 0;
+    await test.step("Hero, Koleksi, Terbaru, pita, Makna, CTA tampil", async () => {
+      await expect(
+        page.getByRole("heading", {
+          name: "Keindahan Sholawat, Dalam Satu Ruang.",
+        }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Koleksi Pilihan" }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Terbaru" }),
+      ).toBeVisible();
+      if (hasRibbon) {
+        await expect(ribbon).toBeVisible();
+      }
+      await expect(
+        page.getByRole("heading", {
+          name: "Lebih dari Sekadar Lantunan. Kenali Maknanya.",
+        }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: "Request Judul" }),
+      ).toBeVisible();
+    });
+    await test.step("Terbaru memakai tanggal, bukan nomor 01/02/03", async () => {
+      const terbaru = page.locator("section", {
+        has: page.getByRole("heading", { name: "Terbaru" }),
+      });
+      // Tanggal Indonesia "14 Nov 2026": bulan singkat harus tampil.
+      await expect(terbaru).toContainText(
+        /\d{1,2} (Jan|Feb|Mar|Apr|Mei|Jun|Jul|Agu|Sep|Okt|Nov|Des) \d{4}/,
+      );
+      // Bukan not.toContainText("01"): tanggal terbit tanggal 1
+      // ("01 Nov 2026") akan false-positive. Yang dicek adalah label
+      // nomor urut mandiri: elemen yang teksnya persis "01"/"02"/"03".
+      const standalone = await terbaru
+        .locator(
+          "xpath=.//*[normalize-space(text())='01' or normalize-space(text())='02' or normalize-space(text())='03']",
+        )
+        .count();
+      expect(standalone).toBe(0);
+    });
+    await test.step("Tidak ada paragraf kosong di Terbaru", async () => {
+      const emptyP = await page.locator("main p:empty").count();
+      expect(emptyP).toBe(0);
+    });
+    await test.step("Tidak ada overflow horizontal", async () => {
+      const r = await page.evaluate(() => ({
+        sw: document.documentElement.scrollWidth,
+        iw: window.innerWidth,
+      }));
+      expect(r.sw).toBe(r.iw);
+    });
+  });
+});

@@ -15,7 +15,7 @@ test.describe("public smoke", () => {
     await test.step("Judul situs tampil", async () => {
       await expect(
         page.getByRole("heading", {
-          name: "Perpustakaan Digital Shalawat & Maulid",
+          name: "Keindahan Sholawat, Dalam Satu Ruang.",
         }),
       ).toBeVisible();
     });
