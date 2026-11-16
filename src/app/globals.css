@@ -75,6 +75,40 @@ html {
   scroll-behavior: smooth;
 }
 
+/* ---- Tombol ---- */
+
+/* CTA outline (spec section 6.4): latar transparan, border emas.
+   Teks emas-deep di latar terang; tambah .btn-outline-gold--on-dark
+   untuk teks emas-lembut di latar gelap. Tetap outline, bukan emas
+   solid. Geometri mengikuti mockup: pill, min-height 50px. */
+.btn-outline-gold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 12px 26px;
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold-deep);
+  font-weight: 600;
+  font-size: 0.98rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+
+.btn-outline-gold:hover {
+  background: rgba(207, 165, 47, 0.14);
+}
+
+.btn-outline-gold--on-dark {
+  color: var(--gold-soft);
+}
+
 section[id] {
   scroll-margin-top: 5.5rem;
 }

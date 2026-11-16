@@ -2,17 +2,23 @@ import Link from "next/link";
 
 export default function SiteFooter() {
   return (
-    <footer className="border-t border-stone-200/70 bg-stone-100/60">
+    <footer className="bg-emerald-950">
       <div className="mx-auto flex max-w-5xl flex-col items-center gap-3 px-4 py-10 text-center">
-        <p className="text-sm text-stone-600">
+        <p className="text-sm text-on-dark">
           Perpustakaan digital shalawat dan maulid untuk dibaca dan
           diamalkan.
         </p>
-        <nav className="flex gap-4 text-sm">
-          <Link href="/shalawat" className="text-stone-600 hover:text-stone-800">
+        <nav className="flex gap-4 text-sm" aria-label="Navigasi footer">
+          <Link
+            href="/shalawat"
+            className="text-on-dark-muted transition hover:text-on-dark"
+          >
             Shalawat
           </Link>
-          <Link href="/maulid" className="text-stone-600 hover:text-stone-800">
+          <Link
+            href="/maulid"
+            className="text-on-dark-muted transition hover:text-on-dark"
+          >
             Maulid
           </Link>
         </nav>
