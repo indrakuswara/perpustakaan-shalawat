@@ -5,14 +5,15 @@ const TYPE_LABEL = { SHALAWAT: "Shalawat", MAULID: "Maulid" } as const;
 
 // Panel info halaman baca (spec 8.5): Kategori, Jumlah bait (hanya bila
 // artikel punya blocks), Tanggal terbit (baris disembunyikan bila null).
-// Jumlah bait menghitung unit ber-Arab saja (bait, spec 8.4): unit
-// teks-pengantar bukan bait dan tidak dihitung.
+// Jumlah bait menghitung TOTAL unit di semua section (spec 8.5): unit
+// teks-pengantar ikut dihitung di baris ini, walau bukan bait dan tidak
+// dihitung dalam penomoran maupun TOC (spec 8.4).
 export default function InfoPanel({
   article,
-  baitCount,
+  totalUnits,
 }: {
   article: ContentRow;
-  baitCount: number;
+  totalUnits: number;
 }) {
   const published = formatTanggalID(article.publishedAt);
   const hasBlocks = article.blocks !== null;
@@ -30,7 +31,7 @@ export default function InfoPanel({
         {hasBlocks && (
           <div className="flex items-baseline justify-between gap-4">
             <dt className="text-muted">Jumlah bait</dt>
-            <dd className="font-medium text-ink">{baitCount}</dd>
+            <dd className="font-medium text-ink">{totalUnits}</dd>
           </div>
         )}
         {published && (

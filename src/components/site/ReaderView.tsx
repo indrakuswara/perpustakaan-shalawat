@@ -1,6 +1,6 @@
 import type { ArticleBlocks, ArticleUnit, ContentRow } from "@/lib/db-types";
 import { sectionAnchorIds } from "@/lib/db-types";
-import { buildTocItems, countArabUnits } from "@/lib/toc";
+import { buildTocItems } from "@/lib/toc";
 import { formatUnitForCopy } from "@/lib/unit-copy";
 import { SITE_URL } from "@/lib/site-url";
 import TocDropdown, { TocListItems } from "./TocDropdown";
@@ -41,7 +41,13 @@ export default function ReaderView({
   const showToc = toc.items.length > 0;
   const showRight = !!article;
   const anchorIds = blocks ? sectionAnchorIds(blocks) : [];
-  const baitCount = blocks ? countArabUnits(blocks) : 0;
+  // "Jumlah bait" di InfoPanel menghitung TOTAL unit di semua section
+  // (spec 8.5), bukan hanya unit ber-Arab: unit teks-pengantar ikut
+  // dihitung di baris itu, walau bukan bait dan tidak dihitung dalam
+  // penomoran maupun TOC (spec 8.4).
+  const totalUnits = blocks
+    ? blocks.sections.reduce((n, s) => n + s.units.length, 0)
+    : 0;
 
   const gridCols =
     showToc && showRight
@@ -118,7 +124,7 @@ export default function ReaderView({
         {showRight && article && (
           <div className="order-3 lg:order-none">
             <div className="space-y-6 lg:sticky lg:top-5 lg:max-h-[calc(100vh-40px)] lg:overflow-y-auto lg:pr-1">
-              <InfoPanel article={article} baitCount={baitCount} />
+              <InfoPanel article={article} totalUnits={totalUnits} />
               <div className="hidden flex-wrap gap-3 lg:flex">
                 <ShareButton
                   title={article.title}

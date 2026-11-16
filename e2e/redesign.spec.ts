@@ -246,8 +246,17 @@ test.describe("homepage", () => {
           koleksi.locator(`a[href="/baca/${slug}"]`).first(),
         ).toBeVisible();
       }
+      // Scoped to the hero section: an unscoped locator could be
+      // satisfied by an article-card link whose title contains a
+      // number + "Shalawat" (e.g. "7 Shalawat Mustajab") instead of
+      // the chip. Same section-scoping pattern as Koleksi/Terbaru.
+      const hero = page.locator("section", {
+        has: page.getByRole("heading", {
+          name: "Keindahan Sholawat, Dalam Satu Ruang.",
+        }),
+      });
       await expect(
-        page.getByRole("link", { name: /\d+ Shalawat/ }),
+        hero.getByRole("link", { name: /\d+ Shalawat/ }),
       ).toHaveAttribute("href", "/shalawat");
     });
     await test.step("Terbaru memakai tanggal, bukan nomor 01/02/03", async () => {
