@@ -122,13 +122,19 @@ test.describe("cards and search", () => {
   test("article card has no arrow and description guard holds", async ({
     page,
   }) => {
-    await test.step("Buka daftar shalawat", async () => {
+    // Same honest-skip pattern as the Task 4 reading-page test:
+    // a fresh local DB has no published articles, so skip instead
+    // of timing out on the visibility assertion.
+    const firstCard = await test.step("Buka daftar shalawat", async () => {
       await page.goto("/shalawat");
+      return page.locator('a[href^="/baca/"]').first();
     });
+    if ((await firstCard.count()) === 0) {
+      test.skip(true, "no published articles in this environment");
+    }
     await test.step("Kartu tanpa panah", async () => {
-      const card = page.locator('a[href^="/baca/"]').first();
-      await expect(card).toBeVisible();
-      await expect(card).not.toContainText("→");
+      await expect(firstCard).toBeVisible();
+      await expect(firstCard).not.toContainText("→");
     });
     await test.step("Tidak ada paragraf kosong di kartu", async () => {
       const emptyP = await page.locator('a[href^="/baca/"] p:empty').count();
