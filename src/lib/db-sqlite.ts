@@ -273,7 +273,10 @@ export function listContents(filter: ContentFilter = {}): ContentRow[] {
     (filter.orderBy === "published"
       ? // published_at tidak pernah null untuk PUBLISHED (diisi saat publish),
         // tapi COALESCE menjaga baris lama yang datanya tidak lengkap.
-        " ORDER BY COALESCE(published_at, created_at) DESC"
+        // Tie-break id DESC: dua baris dengan published_at sama harus
+        // selalu tampil dalam urutan yang sama (flake e2e empty-search,
+        // /search vs "Terbaru" beranda bisa berbeda tanpa kunci ini).
+        " ORDER BY COALESCE(published_at, created_at) DESC, id DESC"
       : " ORDER BY updated_at DESC");
   const rows = getDb().prepare(sql).all(...params);
   return (rows as unknown[]).map(mapContent);

@@ -317,7 +317,10 @@ export async function listContents(
     "SELECT * FROM contents" +
     (where.length ? ` WHERE ${where.join(" AND ")}` : "") +
     (filter.orderBy === "published"
-      ? " ORDER BY COALESCE(published_at, created_at) DESC"
+      // Tie-break id DESC: dua baris dengan published_at sama harus
+      // selalu tampil dalam urutan yang sama (flake e2e empty-search,
+      // /search vs "Terbaru" beranda bisa berbeda tanpa kunci ini).
+      ? " ORDER BY COALESCE(published_at, created_at) DESC, id DESC"
       : " ORDER BY updated_at DESC");
   const rows = await query<Record<string, unknown>>(sql, params);
   return rows.map(mapContent);
