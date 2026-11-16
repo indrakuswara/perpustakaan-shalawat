@@ -22,6 +22,16 @@ ok(
 );
 
 ok(
+  "invalid ISO string returns null instead of throwing",
+  formatTanggalID("garbage") === null,
+);
+
+ok(
+  "empty string returns null instead of throwing",
+  formatTanggalID("") === null,
+);
+
+ok(
   "null returns null, never an empty string",
   formatTanggalID(null) === null,
 );

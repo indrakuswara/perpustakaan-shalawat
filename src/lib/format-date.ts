@@ -35,7 +35,9 @@ const WIB_FORMATTER = new Intl.DateTimeFormat("id-ID", {
 
 export function formatTanggalID(iso: string | null): string | null {
   if (iso === null) return null;
-  const parts = WIB_FORMATTER.formatToParts(new Date(iso));
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return null;
+  const parts = WIB_FORMATTER.formatToParts(date);
   const day = parts.find((p) => p.type === "day")?.value;
   const monthToken = parts.find((p) => p.type === "month")?.value;
   const year = parts.find((p) => p.type === "year")?.value;
