@@ -517,6 +517,7 @@ test.describe.serial("homepage daily inspiration ribbon", () => {
     });
     await test.step("Verifikasi tidak ada sisa artikel tes", async () => {
       await page.goto("/admin/articles");
+      await expect(page).not.toHaveURL(/\/admin\/login/);
       await expect(page.getByText(title, { exact: true })).toHaveCount(0);
     });
   });
