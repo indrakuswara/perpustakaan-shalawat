@@ -53,7 +53,7 @@ function RequestFormInner({
         <h2 className="font-display text-xl font-semibold text-ink">
           Sudah tersedia!
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-english">
+        <p className="mt-2 text-sm leading-relaxed text-muted">
           Judul yang kamu cari ternyata sudah ada di koleksi kami:
         </p>
         <ul className="mt-3 space-y-2">
@@ -68,7 +68,7 @@ function RequestFormInner({
             </li>
           ))}
         </ul>
-        <p className="mt-4 text-sm leading-relaxed text-english">
+        <p className="mt-4 text-sm leading-relaxed text-muted">
           Kalau bukan ini yang kamu maksud, coba tulis judulnya lebih
           spesifik lalu kirim lagi.
         </p>
@@ -89,12 +89,12 @@ function RequestFormInner({
         ? {
             title: "Terima kasih!",
             body: "Request kamu sudah kami terima dan akan ditinjau secara manual. Tidak semua request bisa kami penuhi, tapi semuanya kami baca.",
-            cls: "border-line bg-panel text-english",
+            cls: "border-line bg-panel text-muted",
           }
         : state.status === "duplicate"
           ? {
               title: "Request ini sudah tercatat",
-              body: "Judul yang sama dari nama yang sama sudah ada di antrian kami — tidak perlu dikirim ulang.",
+              body: "Judul yang sama dari nama yang sama sudah ada di antrian kami, tidak perlu dikirim ulang.",
               cls: "border-amber-200 bg-amber-50 text-amber-900",
             }
           : {

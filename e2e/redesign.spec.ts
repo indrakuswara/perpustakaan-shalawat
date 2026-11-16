@@ -996,3 +996,142 @@ test.describe("list, search, request", () => {
     });
   });
 });
+
+// Fix reviewer whole-branch C1: latar halaman publik WAJIB token --bg
+// (#e6f0e8), bukan stone-50. Assertion menarget wrapper layout (site),
+// BUKAN <main> yang transparent — main tidak membawa background
+// sendiri, jadi assert terhadap main akan lolos walau wrapper masih
+// stone-50 (itulah yang terjadi pada run Playwright reviewer).
+// Locator memakai kelas wrapper (flex min-h-screen): <body> juga
+// punya <div hidden=""> internal React sebagai anak pertama, jadi
+// "body > div" mentah menunjuk div yang salah.
+test.describe("page background token", () => {
+  test("public pages use the soft-green background token", async ({
+    page,
+  }) => {
+    await test.step("Beranda berlatar hijau lembut #e6f0e8", async () => {
+      await page.goto("/");
+      const wrapper = page.locator("body > div.flex.min-h-screen").first();
+      await expect(wrapper).toHaveCSS(
+        "background-color",
+        "rgb(230, 240, 232)",
+      );
+    });
+    await test.step("Halaman baca berlatar hijau lembut yang sama", async () => {
+      if (isProductionTarget) {
+        const firstCard = await test.step("Cari kartu shalawat pertama", async () => {
+          await page.goto("/shalawat");
+          return page.locator('a[href^="/baca/"]').first();
+        });
+        if ((await firstCard.count()) === 0) {
+          test.skip(true, "no published articles in this environment");
+        }
+        await firstCard.click();
+        await expect(page).toHaveURL(/\/baca\//);
+      } else {
+        const resp = await page.goto("/baca/e2e-seed-bacaan-deploy");
+        if (resp?.status() === 404) {
+          test.skip(
+            true,
+            "seed article e2e-seed-bacaan-deploy not found (404)",
+          );
+        }
+      }
+      const wrapper = page.locator("body > div.flex.min-h-screen").first();
+      await expect(wrapper).toHaveCSS(
+        "background-color",
+        "rgb(230, 240, 232)",
+      );
+    });
+  });
+});
+
+// Fix reviewer whole-branch I2a: tipografi admin TIDAK BOLEH berubah
+// oleh redesign (font baru hanya untuk halaman publik). Halaman admin
+// tidak memakai layout (site), jadi heading-nya harus tetap memakai
+// font sistem (Arial), bukan Marcellus / Public Sans / Source Serif /
+// Amiri. Sengaja memakai /admin/articles (bukan preview): preview
+// SENGAJA me-render ReaderView, jadi font baru tampil di sana.
+test.describe("admin typography guard", () => {
+  test("admin pages do not use the new site fonts", async ({ page }) => {
+    test.skip(
+      !process.env.E2E_ADMIN_EMAIL || !process.env.E2E_ADMIN_PASSWORD,
+      "needs admin credentials",
+    );
+    await test.step("Login dan buka daftar artikel admin", async () => {
+      await loginAsAdmin(page);
+      await page.goto("/admin/articles");
+      await expect(
+        page.getByRole("heading", { name: "Artikel" }),
+      ).toBeVisible();
+    });
+    await test.step("Heading admin bukan font baru situs", async () => {
+      const font = await page
+        .getByRole("heading", { name: "Artikel" })
+        .evaluate((el) => getComputedStyle(el).fontFamily);
+      for (const banned of [
+        "Marcellus",
+        "Public Sans",
+        "Source Serif",
+        "Amiri",
+      ]) {
+        expect(font.toLowerCase()).not.toContain(banned.toLowerCase());
+      }
+    });
+  });
+});
+
+// Fix reviewer whole-branch I2b: halaman cetak belum pernah
+// di-render e2e. Pin warna token pada kartu cetak dan heading
+// section-nya (globals.css: .print-card memakai var(--line) dan
+// var(--emerald-900); PrintView h2 memakai text-emerald-900).
+test.describe("print page", () => {
+  test("print page renders token borders and emerald headings", async ({
+    page,
+  }) => {
+    let slug = "";
+    if (isProductionTarget) {
+      const firstCard = await test.step("Cari kartu shalawat pertama", async () => {
+        await page.goto("/shalawat");
+        return page.locator('a[href^="/baca/"]').first();
+      });
+      if ((await firstCard.count()) === 0) {
+        test.skip(true, "no published articles in this environment");
+      }
+      const href = await firstCard.getAttribute("href");
+      slug = (href ?? "").replace("/baca/", "");
+    } else {
+      slug = "e2e-seed-bacaan-deploy";
+    }
+    const resp = await test.step("Buka halaman cetak", async () => {
+      return page.goto(`/baca/${slug}/cetak`);
+    });
+    if (resp?.status() === 404) {
+      test.skip(true, `print page for ${slug} not found (404)`);
+    }
+    await test.step("Kartu cetak memakai border token", async () => {
+      const card = page.locator(".print-card").first();
+      await expect(card).toBeVisible();
+      await expect(card).toHaveCSS("border-left-color", "rgb(6, 78, 59)");
+      await expect(card).toHaveCSS("border-top-color", "rgb(207, 227, 211)");
+    });
+    // H2 section hanya dirender bila judul section berbeda dari
+    // judul artikel (atau ada >1 section) — artikel satu section
+    // yang judulnya sama dengan artikel tidak punya h2, dan itu
+    // sah, bukan kegagalan. Seed lokal selalu punya h2 ("Bagian
+    // dummy" vs "E2E Seed Bacaan Deploy"), jadi assertion ini
+    // berjalan penuh di lokal/CI.
+    const h2Count = await page.locator(".print-section-head h2").count();
+    if (h2Count === 0) {
+      test.skip(
+        true,
+        "no section heading on this print page (single section titled like the article)",
+      );
+    }
+    await test.step("Heading section cetak berwarna emerald-900", async () => {
+      await expect(
+        page.locator(".print-section-head h2").first(),
+      ).toHaveCSS("color", "rgb(6, 78, 59)");
+    });
+  });
+});

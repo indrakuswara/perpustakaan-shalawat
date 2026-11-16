@@ -75,7 +75,7 @@ const fonts: Array<[string, string, string]> = [
   ["Amiri", "amiri", "--font-arab"],
 ];
 
-for (const [importName, constName, variable] of fonts) {
+for (const [importName, , variable] of fonts) {
   ok(
     `fonts: ${importName} imported from next/font/google with variable ${variable}`,
     rootLayout.includes(`import { Marcellus, Public_Sans, Source_Serif_4, Amiri } from "next/font/google"`) &&

@@ -144,18 +144,38 @@ export default function ReaderView({
 // Daftar unit satu bagian. Penomoran bait global (1-based, hanya unit
 // ber-Arab, urut section/unit) dihitung di sini supaya kartu, anchor,
 // dan TOC memakai nomor yang sama; `startAt` adalah jumlah unit Arab
-// di semua section sebelumnya.
+// di semua section sebelumnya. Daftar bernomor di-precompute SEBELUM
+// JSX (reduce murni, tanpa mutasi saat render): unit tanpa Arab jadi
+// prosa dengan number null, unit ber-Arab mendapat nomor berjalan.
 function BaitList({ units, startAt }: { units: ArticleUnit[]; startAt: number }) {
-  let baitNumber = startAt;
+  const numbered = units.reduce(
+    (
+      acc: {
+        next: number;
+        items: Array<{ unit: ArticleUnit; number: number | null }>;
+      },
+      unit,
+    ) =>
+      unit.arab
+        ? {
+            next: acc.next + 1,
+            items: [...acc.items, { unit, number: acc.next + 1 }],
+          }
+        : {
+            next: acc.next,
+            items: [...acc.items, { unit, number: null }],
+          },
+    { next: startAt, items: [] },
+  ).items;
   return (
     <>
-      {units.map((unit) => {
-        if (!unit.arab) {
-          return <ProseUnit key={unit.id} unit={unit} />;
-        }
-        baitNumber += 1;
-        return <BaitCard key={unit.id} unit={unit} number={baitNumber} />;
-      })}
+      {numbered.map(({ unit, number }) =>
+        number === null ? (
+          <ProseUnit key={unit.id} unit={unit} />
+        ) : (
+          <BaitCard key={unit.id} unit={unit} number={number} />
+        ),
+      )}
     </>
   );
 }

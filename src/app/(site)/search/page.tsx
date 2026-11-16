@@ -59,14 +59,14 @@ export default async function SearchPage({
             Tidak ketemu?{" "}
             <Link
               href="/request-shalawat"
-              className="font-medium text-emerald-900 underline decoration-emerald-300 underline-offset-2 transition hover:decoration-emerald-700"
+              className="font-medium text-emerald-900 underline decoration-gold underline-offset-2 transition hover:decoration-emerald-700"
             >
               Request shalawat
             </Link>{" "}
             atau{" "}
             <Link
               href="/request-maulid"
-              className="font-medium text-emerald-900 underline decoration-emerald-300 underline-offset-2 transition hover:decoration-emerald-700"
+              className="font-medium text-emerald-900 underline decoration-gold underline-offset-2 transition hover:decoration-emerald-700"
             >
               request maulid
             </Link>
