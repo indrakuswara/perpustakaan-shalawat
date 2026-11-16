@@ -140,6 +140,7 @@ ok(
 ok("print: globals.css has no #e9e4d8", !css.includes("#e9e4d8"));
 ok("print: PrintView has no #0b3d2e", !printView.includes("#0b3d2e"));
 ok("print: PrintView has no #e7d9ae", !printView.includes("#e7d9ae"));
+ok("print: PrintView has no teal-", !printView.includes("teal-"));
 
 console.log(`\n${passed} lulus, ${failed} gagal`);
 process.exit(failed ? 1 : 0);

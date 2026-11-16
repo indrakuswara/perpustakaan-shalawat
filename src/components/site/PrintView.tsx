@@ -61,7 +61,7 @@ export default function PrintView({
                     </p>
                   )}
                   {unit.latin && (
-                    <p className="mt-1 text-[10.5pt] text-teal-700 italic">{unit.latin}</p>
+                    <p className="mt-1 text-[10.5pt] text-latin italic">{unit.latin}</p>
                   )}
                   {unit.translation && (
                     <p className="mt-1.5 text-[10pt] leading-relaxed text-stone-700 md:text-justify">
