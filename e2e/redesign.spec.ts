@@ -653,3 +653,43 @@ test.describe.serial("homepage daily inspiration ribbon", () => {
     });
   });
 });
+
+test.describe("list, search, request", () => {
+  test("empty search shows all published articles", async ({ page }) => {
+    // Honest skip like the other published-article checks: the
+    // skip decision must come from the LIST page, not from /search
+    // itself — before the fix, /search without a query renders no
+    // cards at all, which would mask the failure as a skip.
+    const hasArticles = await test.step(
+      "Cek ada artikel terbit lewat /shalawat",
+      async () => {
+        await page.goto("/shalawat");
+        return (await page.locator('a[href^="/baca/"]').count()) > 0;
+      },
+    );
+    if (!hasArticles) {
+      test.skip(true, "no published articles in this environment");
+    }
+    await test.step("Buka /search tanpa query", async () => {
+      await page.goto("/search");
+    });
+    await test.step("Judul Semua bacaan dan kartu tampil", async () => {
+      await expect(
+        page.getByRole("heading", { name: "Semua bacaan" }),
+      ).toBeVisible();
+      await expect(page.locator('a[href^="/baca/"]').first()).toBeVisible();
+    });
+  });
+
+  test("no kickers on list and request pages", async ({ page }) => {
+    await test.step("Daftar shalawat tanpa KOLEKSI", async () => {
+      await page.goto("/shalawat");
+      await expect(page.locator("main")).not.toContainText("KOLEKSI");
+    });
+    await test.step("Request shalawat tanpa kicker Request", async () => {
+      await page.goto("/request-shalawat");
+      const kicker = page.locator("main p", { hasText: /^Request$/ });
+      await expect(kicker).toHaveCount(0);
+    });
+  });
+});

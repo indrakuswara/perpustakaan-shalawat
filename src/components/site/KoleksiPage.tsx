@@ -14,24 +14,21 @@ export default async function KoleksiPage({
   const articles = await listPublishedContents(type);
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-12 md:py-16">
-      <p className="text-sm font-medium tracking-wide text-emerald-800 uppercase">
-        Koleksi
-      </p>
-      <h1 className="mt-2 font-serif text-3xl font-semibold text-stone-900 md:text-4xl">
+    <main className="bg-bg mx-auto max-w-5xl px-4 py-12 md:py-16">
+      <h1 className="font-display text-3xl text-ink md:text-4xl">
         {title}
       </h1>
-      <p className="mt-3 max-w-xl leading-relaxed text-stone-600">
+      <p className="mt-3 max-w-xl leading-relaxed text-muted">
         {description}
       </p>
 
       {articles.length === 0 ? (
-        <p className="mt-8 rounded-2xl border border-dashed border-stone-300 bg-white/60 p-10 text-center text-sm text-stone-600">
+        <p className="mt-8 rounded-2xl border border-dashed border-line bg-white/60 p-10 text-center text-sm text-muted">
           Belum ada {title.toLowerCase()} yang dipublish.
         </p>
       ) : (
         <>
-          <p className="mt-8 text-sm text-stone-600">
+          <p className="mt-8 text-sm text-muted">
             {articles.length} bacaan
           </p>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -42,14 +39,14 @@ export default async function KoleksiPage({
         </>
       )}
 
-      <div className="mt-10 rounded-2xl border border-stone-200 bg-white/60 p-6 text-center">
-        <p className="text-sm font-medium text-stone-800">
+      <div className="mt-10 rounded-2xl border border-line bg-white/60 p-6 text-center">
+        <p className="text-sm font-medium text-ink">
           Belum menemukan yang kamu cari?
         </p>
-        <p className="mt-1 text-sm text-stone-600">Usulkan judulnya</p>
+        <p className="mt-1 text-sm text-muted">Usulkan judulnya</p>
         <Link
           href={type === "SHALAWAT" ? "/request-shalawat" : "/request-maulid"}
-          className="mt-4 inline-block rounded-lg bg-emerald-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-950"
+          className="btn-outline-gold mt-4"
         >
           Request {title}
         </Link>

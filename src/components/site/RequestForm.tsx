@@ -11,8 +11,8 @@ import type { RequestKind } from "@/lib/requests";
 const INITIAL: SubmitRequestState = { status: "idle" };
 
 const inputCls =
-  "w-full rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-emerald-800 focus:ring-2 focus:ring-emerald-800/15";
-const labelCls = "block text-sm font-medium text-stone-700";
+  "w-full rounded-xl border border-line bg-white px-4 py-2.5 text-sm text-ink outline-none transition placeholder:text-placeholder focus:border-emerald-800 focus:ring-2 focus:ring-emerald-800/15";
+const labelCls = "block font-sans text-sm font-medium text-label";
 
 // Pembungkus: tombol "Kirim request lain" me-remount form bagian dalam
 // (key berubah) supaya state useActionState mulai dari nol lagi —
