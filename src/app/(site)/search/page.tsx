@@ -32,22 +32,30 @@ export default async function SearchPage({
       </div>
 
       {query === "" ? (
-        <>
-          <p className="mt-8 text-sm text-muted">
-            {results.length} bacaan
+        // Nol bacaan terbit: panel empty state seperti KoleksiPage,
+        // bukan "0 bacaan" telanjang dengan grid kosong (spec §9).
+        results.length === 0 ? (
+          <p className="mt-8 rounded-2xl border border-dashed border-line bg-white/60 p-10 text-center text-sm text-muted">
+            Belum ada bacaan yang dipublish.
           </p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {results.map((a) => (
-              <ArticleCard key={a.id} article={a} />
-            ))}
-          </div>
-        </>
+        ) : (
+          <>
+            <p className="mt-8 text-sm text-muted">
+              {results.length} bacaan
+            </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {results.map((a) => (
+                <ArticleCard key={a.id} article={a} />
+              ))}
+            </div>
+          </>
+        )
       ) : results.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-dashed border-stone-300 bg-white/60 p-10 text-center">
-          <p className="text-sm text-stone-600">
+        <div className="mt-8 rounded-2xl border border-dashed border-line bg-white/60 p-10 text-center">
+          <p className="text-sm text-muted">
             Tidak ada hasil untuk “{query}”. Coba kata kunci lain.
           </p>
-          <p className="mt-3 text-sm text-stone-600">
+          <p className="mt-3 text-sm text-muted">
             Tidak ketemu?{" "}
             <Link
               href="/request-shalawat"

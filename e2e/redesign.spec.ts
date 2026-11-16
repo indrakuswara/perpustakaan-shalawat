@@ -304,7 +304,20 @@ test.describe("reading page", () => {
       await expect(page.locator("#bait-1")).toBeVisible();
     });
     await test.step("Tidak ada teks BAIT n, legenda, atau ornamen berlian", async () => {
-      await expect(page.locator("main")).not.toContainText("BAIT 1");
+      // "BAIT n" tak pernah jadi teks DOM huruf besar: pra-Task 8
+      // ReaderView tak memuatnya sama sekali, dan satu-satunya teks
+      // "Bait n" (lib/toc.ts, title case di sumber) masih tampil
+      // sah di TOC. toContainText("BAIT 1") pada <main> takkan
+      // pernah gagal pada regresi yang sesungguhnya — label
+      // <p class="uppercase">Bait 1</p> di kartu — karena pencocokan
+      // case-sensitive terhadap textContent. Cek ke <p> di dalam
+      // kartu bait saja (TOC "Bait 1" di luar kartu tak terhitung);
+      // regex case-insensitive menangkap "Bait 1" maupun "BAIT 1".
+      await expect(
+        page.locator("article[id^='bait-'] p", {
+          hasText: /^Bait \d+$/i,
+        }),
+      ).toHaveCount(0);
       await expect(page.locator("main")).not.toContainText("Arab • Latin");
       await expect(page.locator("main")).not.toContainText("✦");
       await expect(page.locator("main")).not.toContainText("◆");
@@ -657,21 +670,32 @@ test.describe.serial("homepage daily inspiration ribbon", () => {
 test.describe("list, search, request", () => {
   test("empty search shows all published articles", async ({ page }) => {
     // Honest skip like the other published-article checks: the
-    // skip decision must come from the LIST page, not from /search
+    // skip decision must come from the LIST pages, not from /search
     // itself — before the fix, /search without a query renders no
     // cards at all, which would mask the failure as a skip.
-    const hasArticles = await test.step(
-      "Cek ada artikel terbit lewat /shalawat",
-      async () => {
-        await page.goto("/shalawat");
-        return (await page.locator('a[href^="/baca/"]').count()) > 0;
-      },
-    );
-    if (!hasArticles) {
+    // (Fix 4) Cek /shalawat ATAU /maulid: lingkungan yang hanya
+    // punya maulid akan ter-skip dan menyembunyikan kegagalan nyata
+    // bila hanya /shalawat yang dicek.
+    const collectHrefs = async (path: string) => {
+      await page.goto(path);
+      return page
+        .locator('a[href^="/baca/"]')
+        .evaluateAll((els) =>
+          els.map((el) => el.getAttribute("href") ?? "").filter(Boolean),
+        );
+    };
+    let shalawatHrefs: string[] = [];
+    let maulidHrefs: string[] = [];
+    await test.step("Cek ada artikel terbit lewat /shalawat atau /maulid", async () => {
+      shalawatHrefs = await collectHrefs("/shalawat");
+      maulidHrefs = await collectHrefs("/maulid");
+    });
+    if (shalawatHrefs.length + maulidHrefs.length === 0) {
       test.skip(true, "no published articles in this environment");
     }
+    let searchHrefs: string[] = [];
     await test.step("Buka /search tanpa query", async () => {
-      await page.goto("/search");
+      searchHrefs = await collectHrefs("/search");
     });
     await test.step("Judul Semua bacaan dan kartu tampil", async () => {
       await expect(
@@ -679,15 +703,55 @@ test.describe("list, search, request", () => {
       ).toBeVisible();
       await expect(page.locator('a[href^="/baca/"]').first()).toBeVisible();
     });
+    await test.step("Kartu /search sama dengan gabungan /shalawat + /maulid", async () => {
+      // (a) spec §11.3: SEMUA bacaan terbit tampil, bukan sebagian —
+      // himpunan href harus sama persis (urutan dibuktikan langkah b).
+      const expected = new Set([...shalawatHrefs, ...maulidHrefs]);
+      expect([...new Set(searchHrefs)].sort()).toEqual(
+        [...expected].sort(),
+      );
+    });
+    await test.step("Baris hitungan sesuai jumlah bacaan terbit", async () => {
+      // (c) "{n} bacaan" dengan n = total terbit.
+      const total = new Set([...shalawatHrefs, ...maulidHrefs]).size;
+      await expect(page.locator("main")).toContainText(`${total} bacaan`);
+    });
+    await test.step("Kartu pertama /search adalah yang terbaru", async () => {
+      // (b) /search dan daftar "Terbaru" beranda sama-sama memakai
+      // listPublishedContents(undefined, "published"), terbaru dulu;
+      // Terbaru hanya menampilkan 6 pertama, jadi bandingkan href
+      // pertama saja.
+      await page.goto("/");
+      const terbaru = page.locator("section", {
+        has: page.getByRole("heading", { name: "Terbaru" }),
+      });
+      const firstLatest = await terbaru
+        .locator("h3 a[href^='/baca/']")
+        .first()
+        .getAttribute("href");
+      expect(searchHrefs[0]).toBe(firstLatest);
+    });
   });
 
   test("no kickers on list and request pages", async ({ page }) => {
-    await test.step("Daftar shalawat tanpa KOLEKSI", async () => {
+    await test.step("Daftar shalawat tanpa kicker Koleksi", async () => {
       await page.goto("/shalawat");
-      await expect(page.locator("main")).not.toContainText("KOLEKSI");
+      // Kicker lama: <p class="... uppercase">Koleksi</p> — teks
+      // DOM-nya "Koleksi", bukan "KOLEKSI". toContainText("KOLEKSI")
+      // pada <main> lolos di DOM pra-perbaikan: pencocokan
+      // case-sensitive terhadap textContent, yang tak tersentuh CSS
+      // uppercase. Cek ke <p> dengan teks persis "Koleksi", seperti
+      // cek kicker Request di bawah.
+      const kicker = page.locator("main > p", { hasText: /^Koleksi$/ });
+      await expect(kicker).toHaveCount(0);
     });
     await test.step("Request shalawat tanpa kicker Request", async () => {
       await page.goto("/request-shalawat");
+      const kicker = page.locator("main p", { hasText: /^Request$/ });
+      await expect(kicker).toHaveCount(0);
+    });
+    await test.step("Request maulid tanpa kicker Request", async () => {
+      await page.goto("/request-maulid");
       const kicker = page.locator("main p", { hasText: /^Request$/ });
       await expect(kicker).toHaveCount(0);
     });
