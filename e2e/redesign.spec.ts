@@ -989,13 +989,15 @@ test.describe.serial("homepage daily inspiration ribbon", () => {
       !isProductionTarget,
       "production-only ribbon check; non-production uses the temp-article test",
     );
+    // Satu deklarasi untuk semua step di bawah (dulu dideklarasi
+    // ulang identik di tiga step).
+    const ribbon = page.locator("section", {
+      has: page.getByRole("heading", { name: "Satu Hari, Satu Lantunan" }),
+    });
     let arabText = "";
     let href = "";
     await test.step("Pita tampil dengan teks Arab tak kosong", async () => {
       await page.goto("/");
-      const ribbon = page.locator("section", {
-        has: page.getByRole("heading", { name: "Satu Hari, Satu Lantunan" }),
-      });
       await expect(
         page.getByRole("heading", { name: "Satu Hari, Satu Lantunan" }),
       ).toBeVisible();
@@ -1005,9 +1007,6 @@ test.describe.serial("homepage daily inspiration ribbon", () => {
       expect(arabText.length).toBeGreaterThan(0);
     });
     await test.step("Lapis lain yang tampil tak kosong", async () => {
-      const ribbon = page.locator("section", {
-        has: page.getByRole("heading", { name: "Satu Hari, Satu Lantunan" }),
-      });
       // Semua <p> pita selain Arab adalah lapis Latin/Terjemahan/
       // English yang dirender; yang absen boleh absen, yang tampil
       // wajib berisi teks.
@@ -1019,9 +1018,6 @@ test.describe.serial("homepage daily inspiration ribbon", () => {
       }
     });
     await test.step("Tombol menaut ke /baca/<slug>", async () => {
-      const ribbon = page.locator("section", {
-        has: page.getByRole("heading", { name: "Satu Hari, Satu Lantunan" }),
-      });
       const link = ribbon.getByRole("link", { name: "Baca Selengkapnya" });
       href = (await link.getAttribute("href")) ?? "";
       expect(href).toMatch(/^\/baca\/[^/]+$/);
@@ -1096,19 +1092,19 @@ test.describe("list, search, request", () => {
     });
     await test.step("Kartu /search sama dengan gabungan /shalawat + /maulid", async () => {
       // (a) spec §11.3: SEMUA bacaan terbit tampil, bukan sebagian —
-      // himpunan href harus sama persis (urutan dibuktikan langkah b).
+      // himpunan href harus sama persis (urutan dibuktikan langkah c).
       const expected = new Set([...shalawatHrefs, ...maulidHrefs]);
       expect([...new Set(searchHrefs)].sort()).toEqual(
         [...expected].sort(),
       );
     });
     await test.step("Baris hitungan sesuai jumlah bacaan terbit", async () => {
-      // (c) "{n} bacaan" dengan n = total terbit.
+      // (b) "{n} bacaan" dengan n = total terbit.
       const total = new Set([...shalawatHrefs, ...maulidHrefs]).size;
       await expect(page.locator("main")).toContainText(`${total} bacaan`);
     });
     await test.step("Kartu pertama /search adalah yang terbaru", async () => {
-      // (b) /search dan daftar "Terbaru" beranda sama-sama memakai
+      // (c) /search dan daftar "Terbaru" beranda sama-sama memakai
       // listPublishedContents(undefined, "published"), terbaru dulu;
       // Terbaru hanya menampilkan 6 pertama, jadi bandingkan href
       // pertama saja.
@@ -1375,16 +1371,72 @@ test.describe("print page", () => {
   }) => {
     let slug = "";
     if (isProductionTarget) {
-      const firstCard = await test.step("Cari kartu shalawat pertama", async () => {
-        await page.goto("/shalawat");
-        return page.locator('a[href^="/baca/"]').first();
+      // Production memakai discovery: kartu pertama /shalawat bisa
+      // jadi artikel body-only (blocks null/kosong) yang jatuh ke
+      // fallback paragraf di buildPrintModel/PrintView dan tidak
+      // me-render satu pun .print-card, atau artikel satu section
+      // yang judulnya sama dengan artikel sehingga tidak punya h2
+      // (.print-section-head h2 hanya dirender bila judul section
+      // berbeda dari judul artikel atau ada >1 section). Dulu
+      // kedua kondisi itu membuat test ini skip diam-diam, jadi
+      // kedua pin bisa tidak pernah jalan di smoke production.
+      // Karena itu pindai kartu terbit sampai ketemu satu yang
+      // halaman cetaknya me-render KEDUANYA, lalu kedua pin di
+      // bawah berjalan sebagai assertion keras terhadap kartu itu.
+      const hrefs = await test.step("Kumpulkan kartu terbit", async () => {
+        const collect = async (path: string) => {
+          await page.goto(path);
+          return page
+            .locator('a[href^="/baca/"]')
+            .evaluateAll((els) =>
+              els
+                .map((el) => el.getAttribute("href") ?? "")
+                .filter(Boolean),
+            );
+        };
+        return [
+          ...new Set([
+            ...(await collect("/shalawat")),
+            ...(await collect("/maulid")),
+          ]),
+        ];
       });
-      if ((await firstCard.count()) === 0) {
+      if (hrefs.length === 0) {
         test.skip(true, "no published articles in this environment");
       }
-      const href = await firstCard.getAttribute("href");
-      slug = (href ?? "").replace("/baca/", "");
+      slug = await test.step(
+        "Cari artikel dengan kartu cetak dan heading section",
+        async () => {
+          for (const href of hrefs) {
+            const candidate = href.replace("/baca/", "");
+            const r = await page.goto(`/baca/${candidate}/cetak`);
+            if (r?.status() === 404) continue;
+            const cards = await page.locator(".print-card").count();
+            const heads = await page
+              .locator(".print-section-head h2")
+              .count();
+            if (cards > 0 && heads > 0) return candidate;
+          }
+          return "";
+        },
+      );
+      // BEST-EFFORT: pin ini hanya berjalan bila ada satu artikel
+      // terbit yang halaman cetaknya me-render kartu cetak DAN
+      // heading section. Bila tidak ada satu pun (semua artikel
+      // body-only dan/atau satu section berjudul sama dengan
+      // artikel), pin ini TIDAK berjalan di smoke production — itu
+      // keadaan data yang sah, bukan kegagalan, jadi skip eksplisit
+      // ini yang dipakai, bukan assertion keras.
+      if (slug === "") {
+        test.skip(
+          true,
+          "best-effort print pin: no published article currently renders both print cards and a section heading, so this pin did not run in production smoke",
+        );
+      }
     } else {
+      // Seed lokal selalu punya kartu cetak dan h2 ("Bagian dummy"
+      // vs "E2E Seed Bacaan Deploy"), jadi kedua pin di bawah
+      // berjalan penuh di lokal/CI sebagai assertion keras.
       slug = "e2e-seed-bacaan-deploy";
     }
     const resp = await test.step("Buka halaman cetak", async () => {
@@ -1393,37 +1445,12 @@ test.describe("print page", () => {
     if (resp?.status() === 404) {
       test.skip(true, `print page for ${slug} not found (404)`);
     }
-    // Artikel body-only (blocks null/kosong) jatuh ke fallback
-    // paragraf di buildPrintModel/PrintView dan tidak me-render
-    // satu pun .print-card — itu sah, bukan kegagalan. Artikel
-    // lama pra-fitur-blocks punya blocks NULL, jadi kartu pertama
-    // /shalawat di production bisa jadi artikel seperti itu.
-    const printCardCount = await page.locator(".print-card").count();
-    if (printCardCount === 0) {
-      test.skip(
-        true,
-        "paragraph-fallback article has no print cards (body-only article without blocks)",
-      );
-    }
     await test.step("Kartu cetak memakai border token", async () => {
       const card = page.locator(".print-card").first();
       await expect(card).toBeVisible();
       await expect(card).toHaveCSS("border-left-color", "rgb(6, 78, 59)");
       await expect(card).toHaveCSS("border-top-color", "rgb(207, 227, 211)");
     });
-    // H2 section hanya dirender bila judul section berbeda dari
-    // judul artikel (atau ada >1 section) — artikel satu section
-    // yang judulnya sama dengan artikel tidak punya h2, dan itu
-    // sah, bukan kegagalan. Seed lokal selalu punya h2 ("Bagian
-    // dummy" vs "E2E Seed Bacaan Deploy"), jadi assertion ini
-    // berjalan penuh di lokal/CI.
-    const h2Count = await page.locator(".print-section-head h2").count();
-    if (h2Count === 0) {
-      test.skip(
-        true,
-        "no section heading on this print page (single section titled like the article)",
-      );
-    }
     await test.step("Heading section cetak berwarna emerald-900", async () => {
       await expect(
         page.locator(".print-section-head h2").first(),
