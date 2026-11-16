@@ -1708,3 +1708,162 @@ test.describe("print page", () => {
     });
   });
 });
+
+// Load more (12 per batch) di /shalawat dan /maulid. Batch size hidup
+// di KoleksiList; halaman daftar sendiri tidak punya search/filter,
+// jadi tidak ada reset hitungan yang perlu diuji.
+//
+// Non-production: blok serial ini membuat 12 SHALAWAT + 2 MAULID
+// sementara lewat UI admin agar batas batch teruji deterministik
+// (seed ambient hanya 1-2 shalawat dan 0 maulid). Production memakai
+// data ambient (22 shalawat, 3 maulid saat dicek 2026-11-16).
+// Assertion ditulis terhadap total yang dibaca dari teks "N bacaan"
+// di halaman, bukan hardcode 22: batch pertama tepat 12, tombol
+// tampil hanya bila masih ada sisa, klik sampai tombol hilang lalu
+// jumlah kartu sama dengan total.
+test.describe.serial("load more on list pages", () => {
+  const id = runId();
+  const SHALAWAT_TEMP = 12;
+  const MAULID_TEMP = 2;
+  const BATCH = 12;
+  const shalawatIds: (string | null)[] = [];
+  const maulidIds: (string | null)[] = [];
+  const cards = (page: Page) => page.locator('main a[href^="/baca/"]');
+  const loadMoreButton = (page: Page) =>
+    page.getByRole("button", { name: "Muat Lebih Banyak", exact: true });
+
+  // Total terbit menurut teks "N bacaan" di halaman daftar.
+  async function totalShown(page: Page): Promise<number> {
+    const text = await page
+      .getByText(/^\d+ bacaan$/)
+      .first()
+      .textContent();
+    const n = text ? parseInt(text, 10) : NaN;
+    expect(Number.isInteger(n)).toBe(true);
+    return n;
+  }
+
+  async function expectNoHorizontalOverflow(page: Page): Promise<void> {
+    for (const width of [1280, 392]) {
+      await page.setViewportSize({ width, height: 844 });
+      const r = await page.evaluate(() => ({
+        sw: document.documentElement.scrollWidth,
+        iw: window.innerWidth,
+      }));
+      expect(r.sw).toBe(r.iw);
+    }
+  }
+
+  // Cleanup + verifikasi tinggal di afterAll, mengikuti pola blok
+  // temp shalawat di atas: afterAll selalu jalan walau test gagal,
+  // kecuali worker crash. Verifikasi memakai halaman publik (bukan
+  // daftar admin yang bisa ter-paginasi): tidak boleh ada lagi kartu
+  // bertanda E2E TEST di /shalawat maupun /maulid.
+  test.afterAll(async ({ browser }) => {
+    const allIds = [...shalawatIds, ...maulidIds];
+    if (allIds.length === 0) return;
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      await cleanupArticles(page, allIds);
+      for (const route of ["/shalawat", "/maulid"]) {
+        await page.goto(route);
+        await expect(
+          page.locator('main a[href^="/baca/"]', {
+            hasText: "E2E TEST",
+          }),
+        ).toHaveCount(0);
+      }
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("siapkan artikel sementara (non-production)", async ({ page }) => {
+    test.setTimeout(300_000);
+    if (isProductionTarget) {
+      test.skip(true, "production uses ambient data");
+    }
+    test.skip(
+      !process.env.E2E_ADMIN_EMAIL || !process.env.E2E_ADMIN_PASSWORD,
+      "needs admin credentials",
+    );
+    await test.step("Login admin", async () => {
+      await loginAsAdmin(page);
+    });
+    await test.step(`Buat dan publish ${SHALAWAT_TEMP} shalawat sementara`, async () => {
+      for (let i = 1; i <= SHALAWAT_TEMP; i++) {
+        const created = await createDraftArticle(
+          page,
+          `${testTitle(id)} S${i}`,
+        );
+        shalawatIds.push(created.id);
+        await publishArticle(page, created.id);
+      }
+    });
+    await test.step(`Buat dan publish ${MAULID_TEMP} maulid sementara`, async () => {
+      for (let i = 1; i <= MAULID_TEMP; i++) {
+        const created = await createDraftArticle(
+          page,
+          `${testTitle(id)} M${i}`,
+          "MAULID",
+        );
+        maulidIds.push(created.id);
+        await publishArticle(page, created.id);
+      }
+    });
+  });
+
+  test("/shalawat: 12 dulu, tombol muat, klik sampai habis", async ({
+    page,
+  }) => {
+    const total = await test.step("Buka /shalawat dan baca total", async () => {
+      await page.goto("/shalawat");
+      if ((await page.getByText(/^\d+ bacaan$/).count()) === 0) {
+        test.skip(true, "no published shalawat in this environment");
+      }
+      return totalShown(page);
+    });
+    await test.step("Batch pertama tepat 12 dan tombol tampil", async () => {
+      expect(total).toBeGreaterThan(BATCH);
+      await expect(cards(page)).toHaveCount(BATCH);
+      await expect(loadMoreButton(page)).toBeVisible();
+    });
+    await test.step("Klik sampai tombol hilang, semua tampil", async () => {
+      let clicks = 0;
+      while ((await loadMoreButton(page).count()) > 0 && clicks < 10) {
+        await loadMoreButton(page).click();
+        clicks++;
+      }
+      expect(clicks).toBeGreaterThan(0);
+      await expect(loadMoreButton(page)).toHaveCount(0);
+      await expect(cards(page)).toHaveCount(total);
+    });
+    await test.step("Tidak ada overflow horizontal sesudah muat", async () => {
+      await expectNoHorizontalOverflow(page);
+    });
+  });
+
+  test("/maulid: semua tampil sekaligus, tanpa tombol", async ({
+    page,
+  }) => {
+    const total = await test.step("Buka /maulid dan baca total", async () => {
+      await page.goto("/maulid");
+      if ((await page.getByText(/^\d+ bacaan$/).count()) === 0) {
+        test.skip(true, "no published maulid in this environment");
+      }
+      return totalShown(page);
+    });
+    await test.step("Semua kartu tampil dan tombol tidak ada", async () => {
+      expect(total).toBeLessThanOrEqual(BATCH);
+      if (!isProductionTarget) {
+        expect(total).toBeGreaterThanOrEqual(MAULID_TEMP);
+      }
+      await expect(cards(page)).toHaveCount(total);
+      await expect(loadMoreButton(page)).toHaveCount(0);
+    });
+    await test.step("Tidak ada overflow horizontal", async () => {
+      await expectNoHorizontalOverflow(page);
+    });
+  });
+});

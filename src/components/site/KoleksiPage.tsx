@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { listPublishedContents, type ContentType } from "@/lib/db";
-import ArticleCard from "@/components/site/ArticleCard";
+import KoleksiList from "@/components/site/KoleksiList";
 
 export default async function KoleksiPage({
   type,
@@ -27,16 +27,7 @@ export default async function KoleksiPage({
           Belum ada {title.toLowerCase()} yang dipublish.
         </p>
       ) : (
-        <>
-          <p className="mt-8 text-sm text-muted">
-            {articles.length} bacaan
-          </p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {articles.map((a) => (
-              <ArticleCard key={a.id} article={a} />
-            ))}
-          </div>
-        </>
+        <KoleksiList articles={articles} />
       )}
 
       <div className="mt-10 rounded-2xl border border-line bg-white/60 p-6 text-center">
