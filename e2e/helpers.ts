@@ -51,10 +51,28 @@ export async function expandLoadMore(page: Page): Promise<void> {
     name: "Muat Lebih Banyak",
     exact: true,
   });
+  const cards = page.locator('a[href^="/baca/"]');
   let clicks = 0;
   while ((await button.count()) > 0 && clicks < 50) {
+    const before = await cards.count();
     await button.click();
     clicks++;
+    // Tunggu batch mendarat SEBELUM count() berikutnya: click()
+    // kembali begitu klik dikirim, bukan begitu React me-render
+    // batch baru. Tanpa ini, count() saat re-render bisa membaca 0
+    // (tombol sesaat unmount) dan loop berhenti diam-diam dengan
+    // koleksi terpotong; collectListHrefs pun bisa membaca kartu
+    // sebelum batch terakhir ter-render. Setiap klik selalu menambah
+    // kartu (min(12, sisa), termasuk batch terakhir yang parsial
+    // atau penuh), jadi kenaikan hitungan adalah sinyal settle yang
+    // deterministik, bukan sleep. Bila hitungan tidak pernah naik,
+    // wait ini timeout dan tes gagal KERAS, bukan diam-diam
+    // terpotong.
+    await page.waitForFunction(
+      (expected) =>
+        document.querySelectorAll('a[href^="/baca/"]').length > expected,
+      before,
+    );
   }
 }
 
