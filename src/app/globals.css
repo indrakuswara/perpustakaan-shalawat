@@ -1,27 +1,69 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Latar & permukaan */
+  --bg: #e6f0e8;          /* hijau lembut — latar SEMUA halaman */
+  --card: #ffffff;        /* kartu bait, kartu artikel */
+  --panel: #f4faf5;       /* panel terang (TOC, info) */
+  --line: #cfe3d3;        /* garis & border hijau-tint */
+
+  /* Emerald */
+  --emerald-950: #03362a; /* footer, dasar hero */
+  --emerald-900: #064e3b; /* thumbnail Shalawat; teks gelap di terang */
+  --emerald-800: #0a5c46; /* (disatukan dari --emerald-mid #0a5c44) */
+  --emerald-700: #0e6e54; /* aksen sekunder */
+
+  /* Emas */
+  --gold: #cfa52f;        /* ornamen, garis, ikon, teks di latar GELAP */
+  --gold-soft: #e3c566;   /* teks di latar gelap (≈7:1 di atas emerald) */
+  --gold-deep: #7d6010;   /* teks & ikon di latar TERANG (5,06:1 di mint) */
+
+  /* Emas-tua — HANYA thumbnail Maulid, bukan teks/aksen lain */
+  --emas-tua: #7a5c14;
+
+  /* Teks */
+  --ink: #171717;         /* Arab, Terjemahan, judul */
+  --latin: #0b4f3f;       /* Latin (9,5:1) */
+  --english: #3d4a43;     /* English (9,3:1) */
+  --label: #4a554e;       /* label lapis */
+  --muted: #5c665f;       /* teks sekunder di panel (5,6:1, dari tabel review) */
+  --placeholder: #6b7367; /* placeholder search (4,83:1) */
+
+  /* Teks di latar gelap */
+  --on-dark: #f4faf5;     /* teks utama di hero/footer */
+  --on-dark-muted: #d7e6dc; /* teks sekunder di gelap (9,4:1 di #0b3d2e) */
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-panel: var(--panel);
+  --color-line: var(--line);
+  --color-emerald-950: var(--emerald-950);
+  --color-emerald-900: var(--emerald-900);
+  --color-emerald-800: var(--emerald-800);
+  --color-emerald-700: var(--emerald-700);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-gold-deep: var(--gold-deep);
+  --color-emas-tua: var(--emas-tua);
+  --color-ink: var(--ink);
+  --color-latin: var(--latin);
+  --color-english: var(--english);
+  --color-label: var(--label);
+  --color-muted: var(--muted);
+  --color-placeholder: var(--placeholder);
+  --color-on-dark: var(--on-dark);
+  --color-on-dark-muted: var(--on-dark-muted);
+  --font-display: var(--font-marcellus);
+  --font-sans: var(--font-public-sans);
+  --font-serif: var(--font-source-serif);
+  --font-arab: var(--font-arab);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg);
+  color: var(--ink);
   font-family: Arial, Helvetica, sans-serif;
 }
 
