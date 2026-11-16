@@ -18,12 +18,13 @@ function isActiveLink(pathname: string, href: string): boolean {
 }
 
 // Varian header adalah PROP, bukan hasil baca usePathname (spec 6.1).
-// Alasan: saat prerender di build Vercel, usePathname() di client
+// Alasan: diduga saat prerender di build Vercel, usePathname() di client
 // component ini mengembalikan null/bukan "/" untuk homepage, sehingga
 // `isHome` terpanggang false ke HTML + flight data dan homepage live
 // tersaji dengan header static terang padahal spec mewajibkan absolute
-// di atas hero gelap. Build lokal kebetulan mengembalikan "/" — bug
-// yang hanya muncul di Vercel, bukan fluke. Layout route group
+// di atas hero gelap. Build lokal kebetulan mengembalikan "/" — gejala
+// ini teramati hanya di build Vercel. Mekanisme pastinya belum
+// terbukti; yang pasti hanya gejalanya. Layout route group
 // (site)/layout.tsx memasang variant="light", (home)/layout.tsx
 // variant="dark", jadi varian terpanggang dari struktur route, bukan
 // dari runtime pathname. usePathname() di sini hanya untuk penanda
@@ -31,20 +32,22 @@ function isActiveLink(pathname: string, href: string): boolean {
 // memperbaikinya) dan tidak mengubah kelas posisi/background.
 //
 // activeHref ada karena alasan yang sama, untuk kasus route root:
-// usePathname() untuk "/" terpanggang kosong di build Vercel, sehingga
-// `isActiveLink(pathname, "/")` (= pathname === "/") false dan Beranda
-// tidak aktif di homepage live — padahal 10 detik retry Playwright
-// selalu tidak aktif, navigasi client-side ke "/" memperbaikinya, dan
-// full reload merusaknya lagi. (home) memasang activeHref="/" supaya
-// Beranda aktif terpanggang dari struktur route; (site) tidak memasang
-// activeHref dan mengandalkan usePathname/context, yang terbukti jalan
-// di /shalawat, /maulid, dan halaman baca.
+// diduga usePathname() untuk "/" terpanggang kosong di build Vercel,
+// sehingga `isActiveLink(pathname, "/")` (= pathname === "/") false
+// dan Beranda tidak aktif di homepage live. Teramati: retry Playwright
+// 10 detik selalu tidak aktif, navigasi client-side ke "/"
+// memperbaikinya, dan full reload merusaknya lagi. Mekanisme pastinya
+// belum terbukti; yang pasti hanya gejalanya. (home) memasang
+// activeHref="/" supaya Beranda aktif terpanggang dari struktur route;
+// (site) tidak memasang activeHref dan mengandalkan
+// usePathname/context, yang teramati jalan di /shalawat, /maulid, dan
+// halaman baca.
 export default function SiteHeader({
   variant,
   activeHref,
 }: {
   variant: "dark" | "light";
-  activeHref?: string | null;
+  activeHref?: string;
 }) {
   const pathname = usePathname() ?? "";
   const [open, setOpen] = useState(false);

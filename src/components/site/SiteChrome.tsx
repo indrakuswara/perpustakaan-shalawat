@@ -13,7 +13,7 @@ export default function SiteChrome({
   children,
 }: {
   variant: "dark" | "light";
-  activeHref?: string | null;
+  activeHref?: string;
   children: React.ReactNode;
 }) {
   return (
