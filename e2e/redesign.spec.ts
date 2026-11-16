@@ -201,6 +201,11 @@ test.describe("homepage", () => {
         }),
       ).toBeVisible();
       await expect(
+        page.getByRole("heading", {
+          name: "Jaga Warisan, Bagikan Keindahan.",
+        }),
+      ).toBeVisible();
+      await expect(
         page.getByRole("link", { name: "Request Judul" }),
       ).toBeVisible();
     });
@@ -225,6 +230,12 @@ test.describe("homepage", () => {
       }
     });
     await test.step("Koleksi menaut ke empat slug, chip Shalawat ke /shalawat", async () => {
+      // Scoped to the Koleksi section: an unscoped locator could be
+      // satisfied by a Terbaru link to the same slug instead of the
+      // Koleksi card.
+      const koleksi = page.locator("section", {
+        has: page.getByRole("heading", { name: "Koleksi Pilihan" }),
+      });
       for (const slug of [
         "maulid-dibai",
         "maulid-simtudduror",
@@ -232,7 +243,7 @@ test.describe("homepage", () => {
         "lakum-busyro",
       ]) {
         await expect(
-          page.locator(`a[href="/baca/${slug}"]`).first(),
+          koleksi.locator(`a[href="/baca/${slug}"]`).first(),
         ).toBeVisible();
       }
       await expect(
@@ -288,18 +299,35 @@ test.describe("homepage", () => {
 // kredensial hanya membuktikan skip-nya, dan selector assert pita
 // diverifikasi terpisah terhadap artikel Arab-unit yang di-seed
 // langsung ke SQLite lokal.
+//
+// Target branch (re-review Task 7, Critical): test artikel
+// sementara di atas HANYA deterministik bila pool berisi tepat satu
+// item, seperti di CI/lokal. Di production pool berisi ~21 artikel
+// asli, dan picker (dayOfYearWIB % pool.length) hampir selalu
+// memilih artikel lain, jadi assert run-id di sana adalah lotre
+// yang memerahkan smoke hampir di setiap deploy. Karena itu test
+// artikel sementara skip di production, dan production memakai test
+// picker-independent di bawah: tanpa tulis apa pun, ia mengassert
+// pita untuk pilihan hari itu apa adanya (Arab tak kosong, lapis
+// lain yang tampil tak kosong, tombol ke /baca/<slug>, dan teks Arab
+// yang sama tampil di halaman baca).
+const isProductionTarget = (process.env.PLAYWRIGHT_BASE_URL ?? "").includes(
+  "perpustakaan-shalawat.vercel.app",
+);
+
 test.describe.serial("homepage daily inspiration ribbon", () => {
   const id = runId();
   const title = testTitle(id);
   let slug = slugify(title);
   let articleId: string | null = null;
+  let deleted = false;
   const arab = "صَلَّى اللهُ عَلَى مُحَمَّدٍ";
   const latin = `Shallallahu 'ala Muhammad E2E ${id}`;
   const translation = `Semoga shalawat tercurah kepada Muhammad E2E ${id}`;
   const english = `May blessings be upon Muhammad E2E ${id}`;
 
   test.afterAll(async ({ browser }) => {
-    if (!articleId) return;
+    if (deleted || !articleId) return;
     const context = await browser.newContext();
     const page = await context.newPage();
     try {
@@ -312,6 +340,10 @@ test.describe.serial("homepage daily inspiration ribbon", () => {
   test("ribbon renders all four layers and links to the article", async ({
     page,
   }) => {
+    test.skip(
+      isProductionTarget,
+      "production uses the picker-independent ribbon check",
+    );
     test.skip(
       !process.env.E2E_ADMIN_EMAIL || !process.env.E2E_ADMIN_PASSWORD,
       "needs admin credentials",
@@ -381,6 +413,111 @@ test.describe.serial("homepage daily inspiration ribbon", () => {
       await expect(
         ribbon.getByRole("link", { name: "Baca Selengkapnya" }),
       ).toHaveAttribute("href", `/baca/${slug}`);
+    });
+    await test.step("Urutan bagian: pita di antara Terbaru dan Makna", async () => {
+      // Test homepage di atas berjalan sebelum artikel sementara ini
+      // ada, jadi pita absen di sana dan urutannya tidak pernah
+      // diassert dengan pita tampil. Cek ulang di sini, saat pita
+      // pasti tampil.
+      const expected = [
+        "Keindahan Sholawat, Dalam Satu Ruang.",
+        "Koleksi Pilihan",
+        "Terbaru",
+        "Satu Hari, Satu Lantunan",
+        "Lebih dari Sekadar Lantunan. Kenali Maknanya.",
+        "Jaga Warisan, Bagikan Keindahan.",
+      ];
+      const order = await page.evaluate((names) => {
+        const headings = [...document.querySelectorAll("h1, h2")].map((h) =>
+          h.textContent?.trim(),
+        );
+        return names.map((n) => headings.indexOf(n));
+      }, expected);
+      for (let i = 0; i < order.length; i++) {
+        expect(order[i]).not.toBe(-1);
+        if (i > 0) expect(order[i]).toBeGreaterThan(order[i - 1]);
+      }
+    });
+  });
+
+  // Production-only, picker-independent: tidak membuat atau
+  // mempublish apa pun, tidak login, hanya membaca "/" lalu
+  // "/baca/<slug>" untuk pilihan hari itu. Di production pool tidak
+  // pernah kosong, jadi pita WAJIB tampil; bila absen, test ini
+  // gagal dan itu bug sungguhan. Hanya Arab yang dijamin ada oleh
+  // definisi pool, jadi lapis lain diassert tak-kosong hanya bila
+  // tampil, bukan diwajibkan ketiganya.
+  test("ribbon renders the day's pick with non-empty layers and a working link", async ({
+    page,
+  }) => {
+    test.skip(
+      !isProductionTarget,
+      "production-only ribbon check; non-production uses the temp-article test",
+    );
+    let arabText = "";
+    let href = "";
+    await test.step("Pita tampil dengan teks Arab tak kosong", async () => {
+      await page.goto("/");
+      const ribbon = page.locator("section", {
+        has: page.getByRole("heading", { name: "Satu Hari, Satu Lantunan" }),
+      });
+      await expect(
+        page.getByRole("heading", { name: "Satu Hari, Satu Lantunan" }),
+      ).toBeVisible();
+      const arabP = ribbon.locator('p[dir="rtl"][lang="ar"]');
+      await expect(arabP).toBeVisible();
+      arabText = ((await arabP.textContent()) ?? "").trim();
+      expect(arabText.length).toBeGreaterThan(0);
+    });
+    await test.step("Lapis lain yang tampil tak kosong", async () => {
+      const ribbon = page.locator("section", {
+        has: page.getByRole("heading", { name: "Satu Hari, Satu Lantunan" }),
+      });
+      // Semua <p> pita selain Arab adalah lapis Latin/Terjemahan/
+      // English yang dirender; yang absen boleh absen, yang tampil
+      // wajib berisi teks.
+      const layers = ribbon.locator("p:not([dir='rtl'])");
+      const count = await layers.count();
+      for (let i = 0; i < count; i++) {
+        const text = ((await layers.nth(i).textContent()) ?? "").trim();
+        expect(text.length).toBeGreaterThan(0);
+      }
+    });
+    await test.step("Tombol menaut ke /baca/<slug>", async () => {
+      const ribbon = page.locator("section", {
+        has: page.getByRole("heading", { name: "Satu Hari, Satu Lantunan" }),
+      });
+      const link = ribbon.getByRole("link", { name: "Baca Selengkapnya" });
+      href = (await link.getAttribute("href")) ?? "";
+      expect(href).toMatch(/^\/baca\/[^/]+$/);
+    });
+    await test.step("Halaman baca memuat teks Arab yang sama", async () => {
+      await page.goto(href);
+      await expect(
+        page
+          .locator('p[dir="rtl"][lang="ar"]')
+          .filter({ hasText: arabText })
+          .first(),
+      ).toBeVisible();
+    });
+  });
+
+  // Backstop cleanup, pola yang sama dengan test "cleanup: no test
+  // article remains" di admin-crud.spec.ts: afterAll saja tidak
+  // cukup karena cleanupArticle menelan kegagalan login secara diam.
+  // Test terakhir ini menghapus sisa artikel sementara bila ada,
+  // lalu memverifikasi judulnya hilang dari daftar admin.
+  test("cleanup: no test article remains", async ({ page }) => {
+    test.skip(articleId === null, "no test article was created");
+    await test.step("Hapus sisa artikel tes bila ada", async () => {
+      if (!deleted && articleId) {
+        await cleanupArticle(page, articleId);
+        deleted = true;
+      }
+    });
+    await test.step("Verifikasi tidak ada sisa artikel tes", async () => {
+      await page.goto("/admin/articles");
+      await expect(page.getByText(title, { exact: true })).toHaveCount(0);
     });
   });
 });
