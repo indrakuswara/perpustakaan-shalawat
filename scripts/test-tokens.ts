@@ -1,5 +1,5 @@
 // Unit test design tokens and font wiring (src/app/globals.css,
-// src/app/layout.tsx, src/app/(site)/layout.tsx).
+// src/app/layout.tsx, src/components/site/SiteChrome.tsx).
 // Dijalankan: node --experimental-strip-types scripts/test-tokens.ts
 import { readFileSync } from "node:fs";
 
@@ -18,6 +18,11 @@ function ok(name: string, cond: boolean) {
 const css = readFileSync("src/app/globals.css", "utf8");
 const rootLayout = readFileSync("src/app/layout.tsx", "utf8");
 const siteLayout = readFileSync("src/app/(site)/layout.tsx", "utf8");
+const homeLayout = readFileSync("src/app/(home)/layout.tsx", "utf8");
+// Shell layout pindah ke SiteChrome (fix header production 2026-11-16):
+// (site)/layout.tsx dan (home)/layout.tsx kini tipis, hanya memilih
+// varian header lewat prop.
+const siteChrome = readFileSync("src/components/site/SiteChrome.tsx", "utf8");
 
 console.log("== design tokens (:root) ==");
 
@@ -93,13 +98,21 @@ for (const [, constName, variable] of fonts) {
   );
 }
 
-console.log("== font scoping (src/app/(site)/layout.tsx) ==");
+console.log("== font scoping (src/components/site/SiteChrome.tsx) ==");
 
 const outerDivClass =
-  siteLayout.match(/<div className="([^"]*)"/)?.[1] ?? "";
+  siteChrome.match(/<div className="([^"]*)"/)?.[1] ?? "";
 ok(
-  "fonts: (site) layout outer wrapper div carries font-sans",
+  "fonts: SiteChrome outer wrapper div carries font-sans",
   outerDivClass.split(" ").includes("font-sans"),
+);
+ok(
+  "header variant: (site) layout renders SiteChrome variant light",
+  siteLayout.includes('<SiteChrome variant="light">'),
+);
+ok(
+  "header variant: (home) layout renders SiteChrome variant dark",
+  homeLayout.includes('<SiteChrome variant="dark">'),
 );
 
 console.log("== removed values are gone ==");

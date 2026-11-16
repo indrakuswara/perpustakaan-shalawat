@@ -17,14 +17,26 @@ function isActiveLink(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-// Route-aware header (spec section 6.1): absolute over the dark hero
-// on the homepage, static with a light background everywhere else.
-// The nav links stay plain server-rendered links; only the variant
-// switch and the mobile menu need the client pathname.
-export default function SiteHeader() {
-  const pathname = usePathname();
+// Varian header adalah PROP, bukan hasil baca usePathname (spec 6.1).
+// Alasan: saat prerender di build Vercel, usePathname() di client
+// component ini mengembalikan null/bukan "/" untuk homepage, sehingga
+// `isHome` terpanggang false ke HTML + flight data dan homepage live
+// tersaji dengan header static terang padahal spec mewajibkan absolute
+// di atas hero gelap. Build lokal kebetulan mengembalikan "/" — bug
+// yang hanya muncul di Vercel, bukan fluke. Layout route group
+// (site)/layout.tsx memasang variant="light", (home)/layout.tsx
+// variant="dark", jadi varian terpanggang dari struktur route, bukan
+// dari runtime pathname. usePathname() di sini hanya untuk penanda
+// link aktif — itu self-correcting (hydration / client-nav
+// memperbaikinya) dan tidak mengubah kelas posisi/background.
+export default function SiteHeader({
+  variant,
+}: {
+  variant: "dark" | "light";
+}) {
+  const pathname = usePathname() ?? "";
   const [open, setOpen] = useState(false);
-  const isHome = pathname === "/";
+  const isDark = variant === "dark";
   // Override halaman baca (spec 6.2, Task 8): pathname /baca/<slug>
   // tidak menandai tautan apa pun, jadi kategori artikel yang dipasang
   // halaman baca lewat context yang dipakai sebagai penanda aktif.
@@ -42,7 +54,7 @@ export default function SiteHeader() {
 
   const linkClass = (href: string) => {
     const active = isActive(href);
-    if (isHome) {
+    if (isDark) {
       return active
         ? "rounded-full px-3 py-2 text-sm font-medium text-gold-soft underline decoration-gold decoration-2 underline-offset-8"
         : "rounded-full px-3 py-2 text-sm font-medium text-on-dark transition hover:text-gold-soft";
@@ -55,7 +67,7 @@ export default function SiteHeader() {
   return (
     <header
       className={
-        isHome
+        isDark
           ? "absolute inset-x-0 top-0 z-20"
           : "static border-b border-line bg-bg"
       }
@@ -63,7 +75,7 @@ export default function SiteHeader() {
       <div className="mx-auto max-w-5xl px-4">
         <div className="flex h-16 items-center justify-between">
           <Link href="/" aria-label="Perpustakaan Shalawat">
-            <BrandMark variant={isHome ? "dark" : "light"} />
+            <BrandMark variant={isDark ? "dark" : "light"} />
           </Link>
           <nav
             className="hidden items-center gap-0.5 sm:gap-1 md:flex"
@@ -83,7 +95,7 @@ export default function SiteHeader() {
           <button
             type="button"
             className={
-              isHome
+              isDark
                 ? "inline-flex h-11 w-11 items-center justify-center rounded-xl text-on-dark transition hover:text-gold-soft md:hidden"
                 : "inline-flex h-11 w-11 items-center justify-center rounded-xl text-ink transition hover:bg-panel md:hidden"
             }
@@ -113,7 +125,7 @@ export default function SiteHeader() {
             id="mobile-nav"
             aria-label="Navigasi seluler"
             className={
-              isHome
+              isDark
                 ? "mb-4 flex flex-col gap-0.5 rounded-2xl border border-gold/35 bg-emerald-950 p-2.5 md:hidden"
                 : "mb-4 flex flex-col gap-0.5 rounded-2xl border border-line bg-card p-2.5 md:hidden"
             }
