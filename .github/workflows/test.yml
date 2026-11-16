@@ -32,7 +32,7 @@ jobs:
         # names used by the suite. Map them explicitly so changing
         # the workflow values cannot silently diverge seeding from login.
         run: ADMIN_EMAIL="$E2E_ADMIN_EMAIL" ADMIN_PASSWORD="$E2E_ADMIN_PASSWORD" node scripts/seed.ts
-      - name: Seed one published test article (SQLite only)
+      - name: Seed two published test articles (SQLite only)
         run: node scripts/seed-e2e-content.ts
       - run: npm run build
       - name: Start app

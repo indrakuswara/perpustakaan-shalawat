@@ -63,8 +63,13 @@ export async function loginAsAdmin(page: Page): Promise<void> {
 export async function createDraftArticle(
   page: Page,
   title: string,
+  type: "SHALAWAT" | "MAULID" = "SHALAWAT",
 ): Promise<{ id: string; slug: string }> {
   await page.goto("/admin/articles/new");
+  // Tipe dipilih eksplisit walau default form sudah SHALAWAT: test
+  // maulid butuh MAULID, dan mengandalkan default diam-diam akan
+  // membuat artikelnya masuk kategori yang salah.
+  await page.locator("#type").selectOption(type);
   await page.locator("#title").fill(title);
   await page.locator("#description").fill(`Deskripsi dummy untuk ${title}.`);
   await page
@@ -86,6 +91,35 @@ export async function createDraftArticle(
     throw new Error(`Could not read created article id from URL: ${page.url()}`);
   }
   return { id, slug: slugify(title) };
+}
+
+// Isi keempat lapis satu unit di BlocksEditor (halaman edit artikel).
+// Satu halaman edit bisa memuat beberapa unit dengan placeholder yang
+// sama; nth(unitIndex) memilih unit yang dimaksud (0 = unit pertama).
+// Placeholder diverifikasi ke src/app/admin/articles/BlocksEditor.tsx.
+export async function fillUnitLayers(
+  page: Page,
+  unitIndex: number,
+  layers: {
+    arab: string;
+    latin: string;
+    translation: string;
+    english: string;
+  },
+): Promise<void> {
+  await page.getByPlaceholder("التَّهْجِي…").nth(unitIndex).fill(layers.arab);
+  await page
+    .getByPlaceholder("Teks latin / transliterasi…")
+    .nth(unitIndex)
+    .fill(layers.latin);
+  await page
+    .getByPlaceholder("Terjemahan bahasa Indonesia…")
+    .nth(unitIndex)
+    .fill(layers.translation);
+  await page
+    .getByPlaceholder("Terjemahan bahasa Inggris…")
+    .nth(unitIndex)
+    .fill(layers.english);
 }
 
 export async function publishArticle(page: Page, id: string): Promise<void> {
@@ -148,5 +182,36 @@ export async function cleanupArticle(page: Page, id: string | null): Promise<voi
     await deleteArticle(page, id);
   } catch {
     // Already deleted. Nothing left to clean.
+  }
+}
+
+// Hapus beberapa artikel dengan SATU kali login. cleanupArticle login
+// ulang per artikel; dipanggil 2x+ pada page yang sama, login kedua
+// macet ~30 dtk di #email karena sesi sudah login (/admin/login
+// me-redirect ke dashboard) lalu gagal diam-diam tanpa menghapus apa
+// pun — persis yang membuat cleanup 3 maulid timeout di 60 dtk
+// (hanya 1 dari 3 terhapus). Dipakai cleanup maulid (3 artikel).
+export async function cleanupArticles(
+  page: Page,
+  ids: (string | null)[],
+): Promise<void> {
+  const targets = ids.filter((a): a is string => a !== null);
+  if (targets.length === 0) return;
+  try {
+    await loginAsAdmin(page);
+  } catch {
+    return;
+  }
+  for (const id of targets) {
+    try {
+      await unpublishArticle(page, id);
+    } catch {
+      // Already a draft, already deleted, or page moved on; try delete anyway.
+    }
+    try {
+      await deleteArticle(page, id);
+    } catch {
+      // Already deleted. Nothing left to clean.
+    }
   }
 }

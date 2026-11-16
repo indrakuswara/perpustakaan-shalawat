@@ -5,9 +5,17 @@ import {
   slugify,
   loginAsAdmin,
   createDraftArticle,
+  fillUnitLayers,
   publishArticle,
   cleanupArticle,
+  cleanupArticles,
 } from "./helpers";
+
+// Production memakai discovery ambient (artikel asli sudah ada);
+// non-production memakai artikel sementara credential-gated.
+const isProductionTarget = (process.env.PLAYWRIGHT_BASE_URL ?? "").includes(
+  "perpustakaan-shalawat.vercel.app",
+);
 
 // Shared-chrome checks for the redesign (Task 4). Later tasks append
 // their own test.describe blocks to this file.
@@ -292,11 +300,158 @@ test.describe("homepage", () => {
 });
 
 test.describe("reading page", () => {
-  test("reading page has 3 columns and bait TOC", async ({ page }) => {
-    await test.step("Buka artikel shalawat pertama", async () => {
-      await page.goto("/shalawat");
-      await page.locator('a[href^="/baca/"]').first().click();
+  // Carry requirement (b) dari review Task 3: artikel dengan blocks
+  // tapi NOL unit Arab harus menyembunyikan panel TOC sepenuhnya
+  // (buildTocItems mengembalikan kind "bait" dengan items kosong).
+  // Deterministik di lokal/CI karena seed e2e-seed-bacaan-deploy ada
+  // di sana; seed itu TIDAK ada di production (script seed menolak
+  // Postgres), jadi test ini skip di production.
+  test("article without Arab units shows no TOC", async ({ page }) => {
+    test.skip(
+      isProductionTarget,
+      "seed article e2e-seed-bacaan-deploy does not exist in production",
+    );
+    const resp = await test.step("Buka artikel seed tanpa unit Arab", async () => {
+      return page.goto("/baca/e2e-seed-bacaan-deploy");
     });
+    if (resp?.status() === 404) {
+      test.skip(true, "seed article e2e-seed-bacaan-deploy not found (404)");
+    }
+    await test.step("Tidak ada panel TOC maupun dropdown", async () => {
+      await expect(
+        page.getByRole("link", { name: "Bait 1" }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: "Daftar isi" }),
+      ).toHaveCount(0);
+      await expect(page.locator('[id^="bait-"]')).toHaveCount(0);
+    });
+    await test.step("Panel info mencatat Jumlah bait 1", async () => {
+      // Saran reviewer Task 8: seed ini punya tepat 1 unit teks di
+      // 1 section, dan "Jumlah bait" menghitung TOTAL unit (spec
+      // 8.5, InfoPanel) — unit teks-pengantar ikut dihitung di baris
+      // ini walau bukan bait dan tak masuk TOC. Pin angkanya supaya
+      // regresi penghitungan ketahuan.
+      const info = page.locator('section[aria-label="Tentang bacaan ini"]');
+      await expect(info.getByText("Jumlah bait")).toBeVisible();
+      await expect(
+        info.locator("div", { hasText: "Jumlah bait" }).locator("dd"),
+      ).toHaveText("1");
+    });
+    await test.step("Unit teks tampil sebagai prosa tanpa lingkaran bernomor", async () => {
+      await expect(
+        page.locator("main").getByText("Isi dummy untuk tes deploy."),
+      ).toBeVisible();
+    });
+  });
+});
+
+// Test 1 dulunya bergantung pada artikel shalawat ambient ber-unit
+// Arab; di CI/lokal seed tidak punya satu pun unit Arab sehingga
+// test ini gagal/skip. Blok serial ini membuatnya mandiri di
+// non-production mengikuti pola test pita: satu artikel sementara
+// SHALAWAT dengan DUA unit Arab lewat UI admin, dipublish, lalu
+// semua assertion Test 1 yang lama dijalankan terhadapnya.
+//
+// Dua unit Arab itu syarat mutlak, bukan pilihan: TOC disembunyikan
+// bila hasilnya tepat 1 item (spec 8.8, buildTocItems), jadi satu
+// unit Arab saja membuat tautan "Bait 1" tidak pernah tampil.
+//
+// Di production cabang temp-article TIDAK dipakai: data ambient asli
+// sudah ada, jadi discovery kartu pertama /shalawat seperti semula.
+test.describe.serial("reading page temp shalawat", () => {
+  const id = runId();
+  const title = testTitle(id);
+  let slug = slugify(title);
+  let articleId: string | null = null;
+  let deleted = false;
+  const unit1 = {
+    arab: "صَلَّى اللهُ عَلَى مُحَمَّدٍ",
+    latin: `Shallallahu 'ala Muhammad E2E ${id}`,
+    translation: `Semoga shalawat tercurah kepada Muhammad E2E ${id}`,
+    english: `May blessings be upon Muhammad E2E ${id}`,
+  };
+  const unit2 = {
+    arab: "وَالْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ",
+    latin: `Walhamdulillahi rabbil 'alamin E2E ${id}`,
+    translation: `Segala puji bagi Allah, Tuhan semesta alam E2E ${id}`,
+    english: `All praise belongs to Allah, Lord of the worlds E2E ${id}`,
+  };
+
+  test.afterAll(async ({ browser }) => {
+    if (deleted || !articleId) return;
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      await cleanupArticle(page, articleId);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("reading page has 3 columns and bait TOC", async ({ page }) => {
+    if (isProductionTarget) {
+      const firstCard = await test.step("Cari kartu shalawat pertama", async () => {
+        await page.goto("/shalawat");
+        return page.locator('a[href^="/baca/"]').first();
+      });
+      if ((await firstCard.count()) === 0) {
+        test.skip(true, "no published articles in this environment");
+      }
+      await test.step("Buka artikel shalawat pertama", async () => {
+        await firstCard.click();
+        await expect(page).toHaveURL(/\/baca\//);
+      });
+    } else {
+      test.skip(
+        !process.env.E2E_ADMIN_EMAIL || !process.env.E2E_ADMIN_PASSWORD,
+        "needs admin credentials",
+      );
+      await test.step("Buat artikel shalawat sementara dengan 2 unit Arab", async () => {
+        await loginAsAdmin(page);
+        const created = await createDraftArticle(page, title);
+        articleId = created.id;
+        // Unit 1 sudah berisi teks biasa dari createDraftArticle;
+        // lengkapi keempat lapisnya, lalu tambah unit 2 dan isi
+        // keempat lapisnya (nth(1) = unit kedua).
+        await fillUnitLayers(page, 0, unit1);
+        await page
+          .getByRole("button", { name: "+ Tambah unit" })
+          .click();
+        await fillUnitLayers(page, 1, unit2);
+        // Pola yang sama dengan test pita: tunggu POST server action
+        // selesai, baru cek banner sukses.
+        await Promise.all([
+          page.waitForResponse(
+            (r) =>
+              r.request().method() === "POST" &&
+              r.url().includes(`/admin/articles/${articleId}`),
+          ),
+          page.getByRole("button", { name: "Simpan perubahan" }).click(),
+        ]);
+        await expect(page.getByText("Perubahan tersimpan.")).toBeVisible();
+      });
+      await test.step("Publish dan temukan slug asli", async () => {
+        await publishArticle(page, articleId!);
+        await expect(
+          page.getByText("Artikel berhasil dipublish."),
+        ).toBeVisible();
+        await page.goto("/shalawat");
+        const card = page
+          .locator('a[href^="/baca/"]')
+          .filter({ has: page.locator("h3", { hasText: title }) })
+          .first();
+        await expect(card).toBeVisible();
+        // Temukan slug yang benar-benar ditetapkan aplikasi, bukan
+        // percaya hitungan helper (tabrakan slug bisa menambah "-2").
+        const href = await card.getAttribute("href");
+        if (href) slug = href.replace("/baca/", "");
+      });
+      await test.step("Buka halaman baca artikel sementara", async () => {
+        await page.goto(`/baca/${slug}`);
+        await expect(page).toHaveURL(`/baca/${slug}`);
+      });
+    }
     await test.step("TOC bait dan kartu bernomor cocok", async () => {
       await expect(page.getByRole("link", { name: "Bait 1" }).first()).toBeVisible();
       const href = await page.getByRole("link", { name: "Bait 1" }).first().getAttribute("href");
@@ -304,15 +459,6 @@ test.describe("reading page", () => {
       await expect(page.locator("#bait-1")).toBeVisible();
     });
     await test.step("Tidak ada teks BAIT n, legenda, atau ornamen berlian", async () => {
-      // "BAIT n" tak pernah jadi teks DOM huruf besar: pra-Task 8
-      // ReaderView tak memuatnya sama sekali, dan satu-satunya teks
-      // "Bait n" (lib/toc.ts, title case di sumber) masih tampil
-      // sah di TOC. toContainText("BAIT 1") pada <main> takkan
-      // pernah gagal pada regresi yang sesungguhnya — label
-      // <p class="uppercase">Bait 1</p> di kartu — karena pencocokan
-      // case-sensitive terhadap textContent. Cek ke <p> di dalam
-      // kartu bait saja (TOC "Bait 1" di luar kartu tak terhitung);
-      // regex case-insensitive menangkap "Bait 1" maupun "BAIT 1".
       await expect(
         page.locator("article[id^='bait-'] p", {
           hasText: /^Bait \d+$/i,
@@ -364,25 +510,129 @@ test.describe("reading page", () => {
     });
   });
 
-  test("Maulid Baca Juga shows 2 same-category items", async ({ page }) => {
-    const firstCard = await test.step("Buka daftar maulid", async () => {
-      await page.goto("/maulid");
-      return page.locator('a[href^="/baca/"]').first();
+  // Backstop cleanup, pola yang sama dengan test pita: afterAll saja
+  // tidak cukup karena cleanupArticle menelan kegagalan login secara
+  // diam. Test terakhir ini menghapus sisa artikel sementara bila
+  // ada, lalu memverifikasi judulnya hilang dari daftar admin.
+  test("cleanup: no test article remains", async ({ page }) => {
+    test.skip(articleId === null, "no test article was created");
+    await test.step("Hapus sisa artikel tes bila ada", async () => {
+      if (!deleted && articleId) {
+        await cleanupArticle(page, articleId);
+        deleted = true;
+      }
     });
-    if ((await firstCard.count()) === 0) {
-      test.skip(
-        true,
-        "no published maulid in this environment (needs Task 11 seed / production data)",
-      );
+    await test.step("Verifikasi tidak ada sisa artikel tes", async () => {
+      await page.goto("/admin/articles");
+      await expect(page).not.toHaveURL(/\/admin\/login/);
+      await expect(page.getByText(title, { exact: true })).toHaveCount(0);
+    });
+  });
+});
+
+// Test Maulid Baca Juga dulunya mengassert tepat 2 link pada artikel
+// maulid ambient pertama; di CI/lokal tidak ada satu pun maulid
+// sehingga test ini skip selamanya. Blok serial ini membuatnya
+// mandiri di non-production: TIGA artikel sementara MAULID lewat UI
+// admin (yang sedang dibaca dikecualikan, sisanya 2 — persis aturan
+// terkunci spec 8.6: kategori sama dulu, maks 4, tampilkan 2 saja
+// kalau di kategori itu cuma ada 2).
+//
+// Di production TIDAK dibuat artikel temp: ekspektasi dihitung dari
+// data yang ada (jumlah kartu /maulid - 1, dibatasi 4).
+test.describe.serial("maulid related temp articles", () => {
+  const id = runId();
+  const titles = ["A", "B", "C"].map((s) => `${testTitle(id)} ${s}`);
+  const slugs = ["", "", ""];
+  const articleIds: (string | null)[] = [null, null, null];
+  let deleted = false;
+
+  test.afterAll(async ({ browser }) => {
+    if (deleted || articleIds.every((a) => a === null)) return;
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      await cleanupArticles(page, articleIds);
+    } finally {
+      await context.close();
     }
-    await test.step("Buka artikel maulid pertama", async () => {
-      await firstCard.click();
-      await expect(page).toHaveURL(/\/baca\//);
+  });
+
+  test("create three temp maulid articles and publish them", async ({
+    page,
+  }) => {
+    test.skip(
+      isProductionTarget,
+      "production uses the ambient count check; no temp articles in production",
+    );
+    test.skip(
+      !process.env.E2E_ADMIN_EMAIL || !process.env.E2E_ADMIN_PASSWORD,
+      "needs admin credentials",
+    );
+    await test.step("Buat dan publish tiga artikel maulid sementara", async () => {
+      await loginAsAdmin(page);
+      for (let i = 0; i < 3; i++) {
+        const created = await createDraftArticle(page, titles[i], "MAULID");
+        articleIds[i] = created.id;
+        await publishArticle(page, created.id);
+        await expect(
+          page.getByText("Artikel berhasil dipublish."),
+        ).toBeVisible();
+      }
     });
-    await test.step("Baca Juga berisi 2 item Maulid", async () => {
-      const panel = page.locator("aside", { hasText: "Baca juga" });
-      await expect(panel.locator('a[href^="/baca/"]')).toHaveCount(2);
+    await test.step("Temukan slug asli ketiganya", async () => {
+      await page.goto("/maulid");
+      for (let i = 0; i < 3; i++) {
+        const card = page
+          .locator('a[href^="/baca/"]')
+          .filter({ has: page.locator("h3", { hasText: titles[i] }) })
+          .first();
+        await expect(card).toBeVisible();
+        const href = await card.getAttribute("href");
+        if (href) slugs[i] = href.replace("/baca/", "");
+      }
     });
+  });
+
+  test("Maulid Baca Juga shows 2 same-category items", async ({ page }) => {
+    if (isProductionTarget) {
+      const count = await test.step("Hitung kartu maulid di /maulid", async () => {
+        await page.goto("/maulid");
+        return page.locator('a[href^="/baca/"]').count();
+      });
+      if (count === 0) {
+        test.skip(true, "no published maulid in production");
+      }
+      // Yang sedang dibaca dikecualikan, maks 4 (spec 8.6).
+      const expected = Math.min(count - 1, 4);
+      await test.step("Buka artikel maulid pertama", async () => {
+        await page.locator('a[href^="/baca/"]').first().click();
+        await expect(page).toHaveURL(/\/baca\//);
+      });
+      await test.step("Baca Juga berisi ekspektasi dari data yang ada", async () => {
+        const panel = page.locator("aside", { hasText: "Baca juga" });
+        if (expected === 0) {
+          await expect(panel).toHaveCount(0);
+        } else {
+          await expect(panel.locator('a[href^="/baca/"]')).toHaveCount(
+            expected,
+          );
+        }
+      });
+    } else {
+      test.skip(
+        articleIds[0] === null,
+        "temp maulid articles were not created (setup skipped)",
+      );
+      await test.step("Buka satu artikel maulid sementara", async () => {
+        await page.goto(`/baca/${slugs[0]}`);
+        await expect(page).toHaveURL(`/baca/${slugs[0]}`);
+      });
+      await test.step("Baca Juga berisi 2 item Maulid", async () => {
+        const panel = page.locator("aside", { hasText: "Baca juga" });
+        await expect(panel.locator('a[href^="/baca/"]')).toHaveCount(2);
+      });
+    }
     await test.step("Nav Maulid aktif di halaman baca maulid", async () => {
       const desktopNav = page.getByRole("navigation", {
         name: "Navigasi utama",
@@ -393,36 +643,24 @@ test.describe("reading page", () => {
     });
   });
 
-  // Carry requirement (b) dari review Task 3: artikel dengan blocks
-  // tapi NOL unit Arab harus menyembunyikan panel TOC sepenuhnya
-  // (buildTocItems mengembalikan kind "bait" dengan items kosong).
-  // Deterministik di lokal/CI karena seed e2e-seed-bacaan-deploy ada
-  // di sana; seed itu TIDAK ada di production (script seed menolak
-  // Postgres), jadi test ini skip di production.
-  test("article without Arab units shows no TOC", async ({ page }) => {
+  // Backstop cleanup, pola yang sama dengan test pita.
+  test("cleanup: no test articles remain", async ({ page }) => {
     test.skip(
-      isProductionTarget,
-      "seed article e2e-seed-bacaan-deploy does not exist in production",
+      articleIds.every((a) => a === null),
+      "no test articles were created",
     );
-    const resp = await test.step("Buka artikel seed tanpa unit Arab", async () => {
-      return page.goto("/baca/e2e-seed-bacaan-deploy");
+    await test.step("Hapus sisa artikel tes bila ada", async () => {
+      if (!deleted) {
+        await cleanupArticles(page, articleIds);
+        deleted = true;
+      }
     });
-    if (resp?.status() === 404) {
-      test.skip(true, "seed article e2e-seed-bacaan-deploy not found (404)");
-    }
-    await test.step("Tidak ada panel TOC maupun dropdown", async () => {
-      await expect(
-        page.getByRole("link", { name: "Bait 1" }),
-      ).toHaveCount(0);
-      await expect(
-        page.getByRole("button", { name: "Daftar isi" }),
-      ).toHaveCount(0);
-      await expect(page.locator('[id^="bait-"]')).toHaveCount(0);
-    });
-    await test.step("Unit teks tampil sebagai prosa tanpa lingkaran bernomor", async () => {
-      await expect(
-        page.locator("main").getByText("Isi dummy untuk tes deploy."),
-      ).toBeVisible();
+    await test.step("Verifikasi tidak ada sisa artikel tes", async () => {
+      await page.goto("/admin/articles");
+      await expect(page).not.toHaveURL(/\/admin\/login/);
+      for (const t of titles) {
+        await expect(page.getByText(t, { exact: true })).toHaveCount(0);
+      }
     });
   });
 });
@@ -455,10 +693,6 @@ test.describe("reading page", () => {
 // pita untuk pilihan hari itu apa adanya (Arab tak kosong, lapis
 // lain yang tampil tak kosong, tombol ke /baca/<slug>, dan teks Arab
 // yang sama tampil di halaman baca).
-const isProductionTarget = (process.env.PLAYWRIGHT_BASE_URL ?? "").includes(
-  "perpustakaan-shalawat.vercel.app",
-);
-
 test.describe.serial("homepage daily inspiration ribbon", () => {
   const id = runId();
   const title = testTitle(id);
