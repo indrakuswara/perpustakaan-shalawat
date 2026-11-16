@@ -247,6 +247,7 @@ export default async function HomePage() {
             </h2>
             <p
               dir="rtl"
+              lang="ar"
               className="mt-8 font-arab text-2xl leading-[2.15] text-on-dark md:text-3xl"
             >
               {inspiration.arab}

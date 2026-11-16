@@ -1,4 +1,13 @@
 import { test, expect } from "@playwright/test";
+import {
+  runId,
+  testTitle,
+  slugify,
+  loginAsAdmin,
+  createDraftArticle,
+  publishArticle,
+  cleanupArticle,
+} from "./helpers";
 
 // Shared-chrome checks for the redesign (Task 4). Later tasks append
 // their own test.describe blocks to this file.
@@ -195,6 +204,41 @@ test.describe("homepage", () => {
         page.getByRole("link", { name: "Request Judul" }),
       ).toBeVisible();
     });
+    await test.step("Urutan bagian sesuai spek", async () => {
+      const expected = [
+        "Keindahan Sholawat, Dalam Satu Ruang.",
+        "Koleksi Pilihan",
+        "Terbaru",
+        ...(hasRibbon ? ["Satu Hari, Satu Lantunan"] : []),
+        "Lebih dari Sekadar Lantunan. Kenali Maknanya.",
+        "Jaga Warisan, Bagikan Keindahan.",
+      ];
+      const order = await page.evaluate((names) => {
+        const headings = [...document.querySelectorAll("h1, h2")].map((h) =>
+          h.textContent?.trim(),
+        );
+        return names.map((n) => headings.indexOf(n));
+      }, expected);
+      for (let i = 0; i < order.length; i++) {
+        expect(order[i]).not.toBe(-1);
+        if (i > 0) expect(order[i]).toBeGreaterThan(order[i - 1]);
+      }
+    });
+    await test.step("Koleksi menaut ke empat slug, chip Shalawat ke /shalawat", async () => {
+      for (const slug of [
+        "maulid-dibai",
+        "maulid-simtudduror",
+        "qad-kafani",
+        "lakum-busyro",
+      ]) {
+        await expect(
+          page.locator(`a[href="/baca/${slug}"]`).first(),
+        ).toBeVisible();
+      }
+      await expect(
+        page.getByRole("link", { name: /\d+ Shalawat/ }),
+      ).toHaveAttribute("href", "/shalawat");
+    });
     await test.step("Terbaru memakai tanggal, bukan nomor 01/02/03", async () => {
       const terbaru = page.locator("section", {
         has: page.getByRole("heading", { name: "Terbaru" }),
@@ -223,6 +267,120 @@ test.describe("homepage", () => {
         iw: window.innerWidth,
       }));
       expect(r.sw).toBe(r.iw);
+    });
+  });
+});
+
+// Reviewer Task 7, Fix 1 (Important): jalur render pita Daily
+// Inspiration sebelumnya tidak diassert di mana pun secara
+// tanpa-syarat — test homepage hanya mengecek pita bila kebetulan
+// tampil, sementara artikel seed lokal/CI tidak punya satu pun unit
+// Arab sehingga pool selalu kosong dan test lolos walau pitanya
+// rusak. Blok serial ini membuat satu artikel sementara DENGAN unit
+// Arab lewat UI admin, mempublishnya, lalu mengassert pita tampil
+// dengan keempat lapis dan tombol yang menaut ke artikel itu.
+//
+// Credential-gated: test ini skip secara jujur (dengan alasan) bila
+// kredensial admin tidak dikonfigurasi, bukan gagal keras — aturan
+// gagal-keras di helpers.ts berlaku untuk suite CRUD admin itu
+// sendiri, bukan untuk test homepage ini. Jalur UI admin berarti
+// berjalan sungguhan di CI, yang punya kredensial; lokal tanpa
+// kredensial hanya membuktikan skip-nya, dan selector assert pita
+// diverifikasi terpisah terhadap artikel Arab-unit yang di-seed
+// langsung ke SQLite lokal.
+test.describe.serial("homepage daily inspiration ribbon", () => {
+  const id = runId();
+  const title = testTitle(id);
+  let slug = slugify(title);
+  let articleId: string | null = null;
+  const arab = "صَلَّى اللهُ عَلَى مُحَمَّدٍ";
+  const latin = `Shallallahu 'ala Muhammad E2E ${id}`;
+  const translation = `Semoga shalawat tercurah kepada Muhammad E2E ${id}`;
+  const english = `May blessings be upon Muhammad E2E ${id}`;
+
+  test.afterAll(async ({ browser }) => {
+    if (!articleId) return;
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      await cleanupArticle(page, articleId);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("ribbon renders all four layers and links to the article", async ({
+    page,
+  }) => {
+    test.skip(
+      !process.env.E2E_ADMIN_EMAIL || !process.env.E2E_ADMIN_PASSWORD,
+      "needs admin credentials",
+    );
+    await test.step("Buat artikel draft dengan unit Arab", async () => {
+      await loginAsAdmin(page);
+      const created = await createDraftArticle(page, title);
+      articleId = created.id;
+      // createDraftArticle hanya mengisi judul/deskripsi/judul
+      // bagian/teks biasa. Keempat textarea lapis unit pertama
+      // (placeholder BlocksEditor) diisi di sini supaya pita bisa
+      // menampilkan keempat lapis.
+      await page.getByPlaceholder("التَّهْجِي…").fill(arab);
+      await page
+        .getByPlaceholder("Teks latin / transliterasi…")
+        .fill(latin);
+      await page
+        .getByPlaceholder("Terjemahan bahasa Indonesia…")
+        .fill(translation);
+      await page
+        .getByPlaceholder("Terjemahan bahasa Inggris…")
+        .fill(english);
+      // Pola yang sama dengan test edit di admin-crud.spec.ts:
+      // tunggu POST server action selesai, baru cek banner sukses.
+      await Promise.all([
+        page.waitForResponse(
+          (r) =>
+            r.request().method() === "POST" &&
+            r.url().includes(`/admin/articles/${articleId}`),
+        ),
+        page.getByRole("button", { name: "Simpan perubahan" }).click(),
+      ]);
+      await expect(page.getByText("Perubahan tersimpan.")).toBeVisible();
+    });
+    await test.step("Publish dan temukan slug asli", async () => {
+      await publishArticle(page, articleId!);
+      await expect(
+        page.getByText("Artikel berhasil dipublish."),
+      ).toBeVisible();
+      await page.goto("/shalawat");
+      const card = page
+        .locator('a[href^="/baca/"]')
+        .filter({ has: page.locator("h3", { hasText: title }) })
+        .first();
+      await expect(card).toBeVisible();
+      // Temukan slug yang benar-benar ditetapkan aplikasi, bukan
+      // percaya hitungan helper (tabrakan slug bisa menambah "-2").
+      const href = await card.getAttribute("href");
+      if (href) slug = href.replace("/baca/", "");
+    });
+    await test.step("Pita tampil dengan empat lapis dan tombol", async () => {
+      await page.goto("/");
+      const ribbon = page.locator("section", {
+        has: page.getByRole("heading", { name: "Satu Hari, Satu Lantunan" }),
+      });
+      await expect(
+        page.getByRole("heading", { name: "Satu Hari, Satu Lantunan" }),
+      ).toBeVisible();
+      await expect(ribbon).toContainText(arab);
+      await expect(ribbon).toContainText(latin);
+      await expect(ribbon).toContainText(translation);
+      await expect(ribbon).toContainText(english);
+      await expect(ribbon.locator('p[dir="rtl"]')).toHaveAttribute(
+        "lang",
+        "ar",
+      );
+      await expect(
+        ribbon.getByRole("link", { name: "Baca Selengkapnya" }),
+      ).toHaveAttribute("href", `/baca/${slug}`);
     });
   });
 });
