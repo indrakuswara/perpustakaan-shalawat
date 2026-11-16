@@ -162,7 +162,7 @@ export default async function HomePage() {
                 <h3 className="mt-1 font-display text-xl text-ink">
                   {item.title}
                 </h3>
-                <p className="mt-1.5 font-serif text-sm leading-relaxed text-muted">
+                <p className="mt-1.5 font-serif text-sm leading-relaxed text-muted md:text-justify">
                   {item.line}
                 </p>
                 <span className="mt-3 inline-block text-sm font-medium text-emerald-900 transition group-hover:text-gold-deep group-hover:underline group-hover:underline-offset-4">
@@ -219,7 +219,7 @@ export default async function HomePage() {
                         </Link>
                       </h3>
                       {a.description && (
-                        <p className="mt-1.5 font-serif text-[15px] leading-relaxed text-muted">
+                        <p className="mt-1.5 font-serif text-[15px] leading-relaxed text-muted md:text-justify">
                           {a.description}
                         </p>
                       )}
@@ -300,7 +300,7 @@ export default async function HomePage() {
               {MAKNA.map((f) => (
                 <li key={f.title}>
                   <h3 className="font-display text-xl text-ink">{f.title}</h3>
-                  <p className="mt-1.5 font-serif text-[15px] leading-relaxed text-muted">
+                  <p className="mt-1.5 font-serif text-[15px] leading-relaxed text-muted md:text-justify">
                     {f.text}
                   </p>
                 </li>

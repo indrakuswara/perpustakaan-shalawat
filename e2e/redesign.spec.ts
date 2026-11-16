@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import {
   runId,
   testTitle,
@@ -295,6 +295,204 @@ test.describe("homepage", () => {
         iw: window.innerWidth,
       }));
       expect(r.sw).toBe(r.iw);
+    });
+  });
+});
+
+// Justify homepage (tugas follow-up): teks tiga bagian rata
+// kanan-kiri dari md ke atas, tetap rata kiri di mobile; hero dan
+// pita Daily Inspiration eksplisit TIDAK di-justify.
+//
+// Setup memakai beforeAll (bukan test setup serial): keempat test
+// assert viewport berbeda dan harus jalan masing-masing walau test
+// lain gagal — persis yang dibutuhkan TDD fail-before. Satu artikel
+// sementara dipublish supaya Terbaru berisi deskripsi dan pool pita
+// tidak kosong; afterAll menghapusnya dan memverifikasi judulnya
+// hilang (pola cleanup reading-page test). Skip di production seperti
+// test pita: pin justify production butuh cek discovery terpisah.
+test.describe("homepage justify", () => {
+  const id = runId();
+  const title = testTitle(id);
+  let articleId: string | null = null;
+  const layers = {
+    arab: "صَلَّى اللهُ عَلَى مُحَمَّدٍ",
+    latin: `Shallallahu 'ala Muhammad E2E ${id}`,
+    translation: `Semoga shalawat tercurah kepada Muhammad E2E ${id}`,
+    english: `May blessings be upon Muhammad E2E ${id}`,
+  };
+
+  test.beforeAll(async ({ browser }) => {
+    if (!process.env.E2E_ADMIN_EMAIL || !process.env.E2E_ADMIN_PASSWORD) {
+      return;
+    }
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      await loginAsAdmin(page);
+      const created = await createDraftArticle(page, title);
+      articleId = created.id;
+      // Unit 1 sudah berisi teks biasa dari createDraftArticle;
+      // lengkapi keempat lapisnya supaya artikel masuk pool pita.
+      await fillUnitLayers(page, 0, layers);
+      await Promise.all([
+        page.waitForResponse(
+          (r) =>
+            r.request().method() === "POST" &&
+            r.url().includes(`/admin/articles/${articleId}`),
+        ),
+        page.getByRole("button", { name: "Simpan perubahan" }).click(),
+      ]);
+      await expect(page.getByText("Perubahan tersimpan.")).toBeVisible();
+      await publishArticle(page, articleId);
+      await expect(
+        page.getByText("Artikel berhasil dipublish."),
+      ).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
+  test.afterAll(async ({ browser }) => {
+    if (!articleId) return;
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      await cleanupArticle(page, articleId);
+      await page.goto("/admin/articles");
+      await expect(page).not.toHaveURL(/\/admin\/login/);
+      await expect(page.getByText(title, { exact: true })).toHaveCount(0);
+    } finally {
+      await context.close();
+    }
+  });
+
+  // Computed text-align semua <p> deskripsi (font-serif) di satu
+  // bagian, dicari lewat heading-nya. <p> lain di bagian itu (mis.
+  // label tipe Koleksi) sengaja tidak ikut: yang di-justify hanya
+  // teks isi.
+  const sectionAligns = (page: Page, heading: string) =>
+    page
+      .locator("section", {
+        has: page.getByRole("heading", { name: heading }),
+      })
+      .locator("p.font-serif")
+      .evaluateAll((els) =>
+        els.map((el) => getComputedStyle(el).textAlign),
+      );
+
+  // Computed text-align SEMUA <p> di satu bagian (untuk pin
+  // exclusion hero dan pita).
+  const allParagraphAligns = (page: Page, heading: string) =>
+    page
+      .locator("section", {
+        has: page.getByRole("heading", { name: heading }),
+      })
+      .locator("p")
+      .evaluateAll((els) =>
+        els.map((el) => getComputedStyle(el).textAlign),
+      );
+
+  const skipIfNoTempArticle = () => {
+    test.skip(
+      isProductionTarget,
+      "production uses discovery-based checks; this test needs a temp article",
+    );
+    test.skip(
+      !process.env.E2E_ADMIN_EMAIL || !process.env.E2E_ADMIN_PASSWORD,
+      "needs admin credentials",
+    );
+  };
+
+  for (const width of [1280, 768]) {
+    test(`teks Koleksi, Terbaru, dan Makna di-justify di ${width}px`, async ({
+      page,
+    }) => {
+      skipIfNoTempArticle();
+      await test.step(`Buka beranda di ${width}px`, async () => {
+        await page.setViewportSize({ width, height: 800 });
+        await page.goto("/");
+      });
+      await test.step("Deskripsi Koleksi Pilihan rata kanan-kiri", async () => {
+        const aligns = await sectionAligns(page, "Koleksi Pilihan");
+        expect(aligns.length).toBe(4);
+        for (const a of aligns) expect(a).toBe("justify");
+      });
+      await test.step("Deskripsi Terbaru rata kanan-kiri", async () => {
+        const aligns = await sectionAligns(page, "Terbaru");
+        expect(aligns.length).toBeGreaterThanOrEqual(1);
+        for (const a of aligns) expect(a).toBe("justify");
+      });
+      await test.step("Teks Makna rata kanan-kiri", async () => {
+        const aligns = await sectionAligns(
+          page,
+          "Lebih dari Sekadar Lantunan. Kenali Maknanya.",
+        );
+        expect(aligns.length).toBe(3);
+        for (const a of aligns) expect(a).toBe("justify");
+      });
+      await test.step(`Tidak ada overflow horizontal di ${width}px`, async () => {
+        const r = await page.evaluate(() => ({
+          sw: document.documentElement.scrollWidth,
+          iw: window.innerWidth,
+        }));
+        expect(r.sw).toBe(r.iw);
+      });
+    });
+  }
+
+  test("teks Koleksi, Terbaru, dan Makna rata kiri di 392px", async ({
+    page,
+  }) => {
+    skipIfNoTempArticle();
+    await test.step("Buka beranda di 392px", async () => {
+      await page.setViewportSize({ width: 392, height: 844 });
+      await page.goto("/");
+    });
+    await test.step("Ketiga bagian rata kiri di mobile", async () => {
+      // Chromium melaporkan nilai awal text-align sebagai "start";
+      // keduanya berarti rata kiri di konteks LTR ini.
+      for (const heading of [
+        "Koleksi Pilihan",
+        "Terbaru",
+        "Lebih dari Sekadar Lantunan. Kenali Maknanya.",
+      ]) {
+        const aligns = await sectionAligns(page, heading);
+        expect(aligns.length).toBeGreaterThanOrEqual(1);
+        for (const a of aligns) expect(["left", "start"]).toContain(a);
+      }
+    });
+    await test.step("Tidak ada overflow horizontal di 392px", async () => {
+      const r = await page.evaluate(() => ({
+        sw: document.documentElement.scrollWidth,
+        iw: window.innerWidth,
+      }));
+      expect(r.sw).toBe(r.iw);
+    });
+  });
+
+  test("hero dan pita tidak di-justify di 1280px", async ({ page }) => {
+    skipIfNoTempArticle();
+    await test.step("Buka beranda di 1280px", async () => {
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await page.goto("/");
+    });
+    await test.step("Subteks hero tidak rata kanan-kiri", async () => {
+      const aligns = await allParagraphAligns(
+        page,
+        "Keindahan Sholawat, Dalam Satu Ruang.",
+      );
+      expect(aligns.length).toBe(1);
+      for (const a of aligns) expect(a).not.toBe("justify");
+    });
+    await test.step("Paragraf pita tidak rata kanan-kiri", async () => {
+      const aligns = await allParagraphAligns(
+        page,
+        "Satu Hari, Satu Lantunan",
+      );
+      // Pita dirender karena artikel sementara masuk pool; bila
+      // kosong, ini gagal keras, bukan lolos diam-diam.
+      expect(aligns.length).toBeGreaterThanOrEqual(1);
+      for (const a of aligns) expect(a).not.toBe("justify");
     });
   });
 });
