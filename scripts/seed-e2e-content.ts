@@ -44,7 +44,17 @@ async function seedArticle(
         {
           id: "seed-section",
           title: "Bagian dummy",
-          units: [{ id: "seed-unit", text: "Isi dummy untuk tes deploy." }],
+          // Lapis English sengaja ada di unit seed ini: test print
+          // e2e mengunci warna computed text-english di halaman
+          // cetak artikel ini, jadi lapis itu harus ikut ter-render
+          // (tanpa ini, pin warna English tidak punya elemen).
+          units: [
+            {
+              id: "seed-unit",
+              text: "Isi dummy untuk tes deploy.",
+              english: "English dummy for print test.",
+            },
+          ],
         },
       ],
     },

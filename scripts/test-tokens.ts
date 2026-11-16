@@ -54,6 +54,21 @@ for (const [name, hex] of tokens) {
   ok(`tokens: :root defines ${name} ${hex}`, css.includes(`${name}: ${hex}`));
 }
 
+console.log("== color utilities (@theme inline) ==");
+
+// Tailwind v4 menghasilkan utilitas warna (text-*, bg-*, border-*)
+// dari namespace --color-* di @theme. Token --english saja di :root
+// TIDAK cukup: tanpa baris --color-english di bawah, kelas
+// text-english di PrintView/ReaderView tidak pernah di-generate dan
+// perbaikan kontras English jadi ilusi sementara test string-match
+// tetap hijau. Kunci pemetaan tiap token warna ke var(--...).
+for (const [name] of tokens) {
+  ok(
+    `tokens: @theme inline maps --color-${name.slice(2)} to var(${name})`,
+    css.includes(`--color-${name.slice(2)}: var(${name})`),
+  );
+}
+
 console.log("== font mappings (@theme inline) ==");
 
 const fontMappings: Array<[string, string]> = [

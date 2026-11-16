@@ -9,8 +9,10 @@ import { ReadingNavProvider } from "@/components/site/ReadingNavContext";
 // route, bukan dari usePathname saat prerender — lihat SiteHeader.
 //
 // Latar halaman publik = token --bg (hijau lembut #e6f0e8) pada
-// wrapper di bawah (fix reviewer whole-branch C1: ganti stone-50
-// dengan bg-bg). /hadroh SENGAJA di luar cakupan fix ini: halaman
+// wrapper di bawah. (Catatan: fix reviewer whole-branch C1, ganti
+// stone-50 dengan bg-bg, sudah mendarat di base redesign 83beb2b,
+// bukan di batch ini; wrapper ini sudah bg-bg sejak base.)
+// /hadroh SENGAJA di luar cakupan fix ini: halaman
 // dormant (page-nya memanggil notFound()) dan tidak ditautkan dari
 // mana pun, jadi latar kremnya sendiri tidak disamakan dan tidak
 // dicakup test "page background token".

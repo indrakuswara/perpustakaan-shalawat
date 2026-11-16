@@ -39,6 +39,38 @@ export function testTitle(id: string): string {
   return `E2E TEST ${id}`;
 }
 
+// Load more (KoleksiList, 12 per batch): halaman daftar /shalawat
+// dan /maulid hanya menampilkan 12 kartu pertama sampai tombol
+// "Muat Lebih Banyak" diklik. Kumpulkan href/kartu dari halaman
+// daftar HANYA lewat helper ini supaya koleksi tidak terpotong di
+// 12. /search me-render semua kartu server-side dan tidak punya
+// tombol itu, jadi helper yang sama aman dipakai di sana (expand
+// jadi no-op).
+export async function expandLoadMore(page: Page): Promise<void> {
+  const button = page.getByRole("button", {
+    name: "Muat Lebih Banyak",
+    exact: true,
+  });
+  let clicks = 0;
+  while ((await button.count()) > 0 && clicks < 50) {
+    await button.click();
+    clicks++;
+  }
+}
+
+export async function collectListHrefs(
+  page: Page,
+  path: string,
+): Promise<string[]> {
+  await page.goto(path);
+  await expandLoadMore(page);
+  return page
+    .locator('a[href^="/baca/"]')
+    .evaluateAll((els) =>
+      els.map((el) => el.getAttribute("href") ?? "").filter(Boolean),
+    );
+}
+
 export function adminCredentials(): { email: string; password: string } {
   const email = (process.env.E2E_ADMIN_EMAIL ?? "").trim();
   const password = process.env.E2E_ADMIN_PASSWORD ?? "";

@@ -9,6 +9,8 @@ import {
   publishArticle,
   cleanupArticle,
   cleanupArticles,
+  expandLoadMore,
+  collectListHrefs,
 } from "./helpers";
 
 // Production memakai discovery ambient (artikel asli sudah ada);
@@ -154,6 +156,9 @@ test.describe("cards and search", () => {
       await expect(firstCard).not.toContainText("→");
     });
     await test.step("Tidak ada paragraf kosong di kartu", async () => {
+      // /shalawat hanya menampilkan 12 kartu pertama: kembangkan
+      // dulu supaya guard ini memeriksa semua kartu, bukan 12 saja.
+      await expandLoadMore(page);
       const emptyP = await page.locator('a[href^="/baca/"] p:empty').count();
       expect(emptyP).toBe(0);
     });
@@ -1015,6 +1020,9 @@ test.describe.serial("maulid related temp articles", () => {
     if (isProductionTarget) {
       const count = await test.step("Hitung kartu maulid di /maulid", async () => {
         await page.goto("/maulid");
+        // /maulid hanya menampilkan 12 kartu pertama: kembangkan
+        // dulu supaya hitungan tidak terpotong bila maulid melewati 12.
+        await expandLoadMore(page);
         return page.locator('a[href^="/baca/"]').count();
       });
       if (count === 0) {
@@ -1305,26 +1313,24 @@ test.describe("list, search, request", () => {
     // (Fix 4) Cek /shalawat ATAU /maulid: lingkungan yang hanya
     // punya maulid akan ter-skip dan menyembunyikan kegagalan nyata
     // bila hanya /shalawat yang dicek.
-    const collectHrefs = async (path: string) => {
-      await page.goto(path);
-      return page
-        .locator('a[href^="/baca/"]')
-        .evaluateAll((els) =>
-          els.map((el) => el.getAttribute("href") ?? "").filter(Boolean),
-        );
-    };
+    // collectListHrefs mengembangkan "Muat Lebih Banyak" dulu:
+    // /shalawat dan /maulid hanya menampilkan 12 kartu pertama,
+    // sementara /search menampilkan semuanya — tanpa expand, tes ini
+    // akan membandingkan 12+3 href dengan 25 href dan gagal di data
+    // live. /search sendiri tidak punya tombol itu, jadi helper yang
+    // sama aman dipakai di ketiga halaman.
     let shalawatHrefs: string[] = [];
     let maulidHrefs: string[] = [];
     await test.step("Cek ada artikel terbit lewat /shalawat atau /maulid", async () => {
-      shalawatHrefs = await collectHrefs("/shalawat");
-      maulidHrefs = await collectHrefs("/maulid");
+      shalawatHrefs = await collectListHrefs(page, "/shalawat");
+      maulidHrefs = await collectListHrefs(page, "/maulid");
     });
     if (shalawatHrefs.length + maulidHrefs.length === 0) {
       test.skip(true, "no published articles in this environment");
     }
     let searchHrefs: string[] = [];
     await test.step("Buka /search tanpa query", async () => {
-      searchHrefs = await collectHrefs("/search");
+      searchHrefs = await collectListHrefs(page, "/search");
     });
     await test.step("Judul Semua bacaan dan kartu tampil", async () => {
       await expect(
@@ -1627,27 +1633,23 @@ test.describe("print page", () => {
       // me-render satu pun .print-card, atau artikel satu section
       // yang judulnya sama dengan artikel sehingga tidak punya h2
       // (.print-section-head h2 hanya dirender bila judul section
-      // berbeda dari judul artikel atau ada >1 section). Dulu
-      // kedua kondisi itu membuat test ini skip diam-diam, jadi
-      // kedua pin bisa tidak pernah jalan di smoke production.
+      // berbeda dari judul artikel atau ada >1 section), atau
+      // artikel tanpa lapis English. Dulu kondisi-kondisi itu
+      // membuat test ini skip diam-diam, jadi pin-pin di bawah
+      // bisa tidak pernah jalan di smoke production.
       // Karena itu pindai kartu terbit sampai ketemu satu yang
-      // halaman cetaknya me-render KEDUANYA, lalu kedua pin di
-      // bawah berjalan sebagai assertion keras terhadap kartu itu.
+      // halaman cetaknya me-render KETIGANYA (kartu cetak, heading
+      // section, dan teks English), lalu pin di bawah berjalan
+      // sebagai assertion keras terhadap kartu itu.
       const hrefs = await test.step("Kumpulkan kartu terbit", async () => {
-        const collect = async (path: string) => {
-          await page.goto(path);
-          return page
-            .locator('a[href^="/baca/"]')
-            .evaluateAll((els) =>
-              els
-                .map((el) => el.getAttribute("href") ?? "")
-                .filter(Boolean),
-            );
-        };
+        // collectListHrefs mengembangkan "Muat Lebih Banyak" dulu:
+        // tanpa itu, pindaian hanya melihat 12 kartu /shalawat
+        // pertama, dan artikel yang memenuhi syarat di peringkat 13
+        // ke atas tidak pernah ketemu sehingga tes ini skip.
         return [
           ...new Set([
-            ...(await collect("/shalawat")),
-            ...(await collect("/maulid")),
+            ...(await collectListHrefs(page, "/shalawat")),
+            ...(await collectListHrefs(page, "/maulid")),
           ]),
         ];
       });
@@ -1665,28 +1667,33 @@ test.describe("print page", () => {
             const heads = await page
               .locator(".print-section-head h2")
               .count();
-            if (cards > 0 && heads > 0) return candidate;
+            const english = await page
+              .locator(".print-card p[lang='en']")
+              .count();
+            if (cards > 0 && heads > 0 && english > 0) return candidate;
           }
           return "";
         },
       );
       // BEST-EFFORT: pin ini hanya berjalan bila ada satu artikel
       // terbit yang halaman cetaknya me-render kartu cetak DAN
-      // heading section. Bila tidak ada satu pun (semua artikel
-      // body-only dan/atau satu section berjudul sama dengan
-      // artikel), pin ini TIDAK berjalan di smoke production — itu
-      // keadaan data yang sah, bukan kegagalan, jadi skip eksplisit
-      // ini yang dipakai, bukan assertion keras.
+      // heading section DAN teks English. Bila tidak ada satu pun
+      // (semua artikel body-only dan/atau satu section berjudul sama
+      // dengan artikel dan/atau tanpa lapis English), pin ini TIDAK
+      // berjalan di smoke production — itu keadaan data yang sah,
+      // bukan kegagalan, jadi skip eksplisit ini yang dipakai,
+      // bukan assertion keras.
       if (slug === "") {
         test.skip(
           true,
-          "best-effort print pin: no published article currently renders both print cards and a section heading, so this pin did not run in production smoke",
+          "best-effort print pin: no published article currently renders print cards, a section heading, and English text, so this pin did not run in production smoke",
         );
       }
     } else {
-      // Seed lokal selalu punya kartu cetak dan h2 ("Bagian dummy"
-      // vs "E2E Seed Bacaan Deploy"), jadi kedua pin di bawah
-      // berjalan penuh di lokal/CI sebagai assertion keras.
+      // Seed lokal selalu punya kartu cetak, h2 ("Bagian dummy"
+      // vs "E2E Seed Bacaan Deploy"), dan lapis English di unit
+      // seed-nya, jadi ketiga pin di bawah berjalan penuh di
+      // lokal/CI sebagai assertion keras.
       slug = "e2e-seed-bacaan-deploy";
     }
     const resp = await test.step("Buka halaman cetak", async () => {
@@ -1705,6 +1712,16 @@ test.describe("print page", () => {
       await expect(
         page.locator(".print-section-head h2").first(),
       ).toHaveCSS("color", "rgb(6, 78, 59)");
+    });
+    await test.step("Teks English cetak memakai warna token #3d4a43", async () => {
+      // Pin computed-color, bukan string-match: membuktikan kelas
+      // text-english di PrintView benar-benar di-generate dari
+      // token --english dan me-render #3d4a43 (9,3:1), bukan
+      // text-stone-400 (~2,2:1). Pola yang sama dengan pin border
+      // di atas.
+      await expect(
+        page.locator(".print-card p[lang='en']").first(),
+      ).toHaveCSS("color", "rgb(61, 74, 67)");
     });
   });
 });
@@ -1756,9 +1773,12 @@ test.describe.serial("load more on list pages", () => {
 
   // Cleanup + verifikasi tinggal di afterAll, mengikuti pola blok
   // temp shalawat di atas: afterAll selalu jalan walau test gagal,
-  // kecuali worker crash. Verifikasi memakai halaman publik (bukan
-  // daftar admin yang bisa ter-paginasi): tidak boleh ada lagi kartu
-  // bertanda E2E TEST di /shalawat maupun /maulid.
+  // kecuali worker crash. Verifikasi memakai /search tanpa query,
+  // BUKAN /shalawat atau /maulid: /search me-render SEMUA bacaan
+  // terbit server-side (tanpa KoleksiList/pagination), sementara
+  // halaman daftar kini hanya menampilkan 12 kartu pertama —
+  // artikel sementara yang bocor dan berperingkat di atas 12 tidak
+  // terlihat dari /shalawat maupun /maulid, jadi cek di sana buta.
   test.afterAll(async ({ browser }) => {
     const allIds = [...shalawatIds, ...maulidIds];
     if (allIds.length === 0) return;
@@ -1766,14 +1786,12 @@ test.describe.serial("load more on list pages", () => {
     const page = await context.newPage();
     try {
       await cleanupArticles(page, allIds);
-      for (const route of ["/shalawat", "/maulid"]) {
-        await page.goto(route);
-        await expect(
-          page.locator('main a[href^="/baca/"]', {
-            hasText: "E2E TEST",
-          }),
-        ).toHaveCount(0);
-      }
+      await page.goto("/search");
+      await expect(
+        page.locator('main a[href^="/baca/"]', {
+          hasText: "E2E TEST",
+        }),
+      ).toHaveCount(0);
     } finally {
       await context.close();
     }
