@@ -533,6 +533,158 @@ test.describe.serial("reading page temp shalawat", () => {
   // di afterAll di atas — lihat komentarnya.)
 });
 
+// Fix (a) follow-up: penomoran bait HANYA diuji unit-level di
+// src/lib/toc.ts (buildTocItems) dan e2e "Bait 1" di atas — tidak ada
+// yang mengunci bahwa nomor bait BERLANJUT lintas section di halaman
+// baca yang benar-benar dirender. Blok serial ini membuat satu
+// artikel sementara dengan DUA section (2 unit Arab di section 1,
+// 1 unit Arab di section 2) lewat UI admin, mempublishnya, lalu
+// mengassert bait pertama section 2 adalah #bait-3 (bukan #bait-1
+// lagi) dan TOC menaut ke id yang sama.
+//
+// Di production cabang temp-article TIDAK dipakai: tidak ada artikel
+// multi-section yang deterministik untuk discovery, jadi test ini
+// skip di production.
+test.describe.serial("reading page cross-section bait numbering", () => {
+  const id = runId();
+  const title = testTitle(id);
+  let slug = slugify(title);
+  let articleId: string | null = null;
+  const unit1 = {
+    arab: "صَلَّى اللهُ عَلَى مُحَمَّدٍ",
+    latin: `Shallallahu 'ala Muhammad E2E ${id} A`,
+    translation: `Semoga shalawat tercurah kepada Muhammad E2E ${id} A`,
+    english: `May blessings be upon Muhammad E2E ${id} A`,
+  };
+  const unit2 = {
+    arab: "وَالْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ",
+    latin: `Walhamdulillahi rabbil 'alamin E2E ${id} B`,
+    translation: `Segala puji bagi Allah, Tuhan semesta alam E2E ${id} B`,
+    english: `All praise belongs to Allah, Lord of the worlds E2E ${id} B`,
+  };
+  const unit3 = {
+    arab: "اللَّهُمَّ صَلِّ عَلَى سَيِّدِنَا مُحَمَّدٍ",
+    latin: `Allahumma shalli 'ala sayyidina Muhammad E2E ${id} C`,
+    translation: `Ya Allah, limpahkanlah shalawat kepada junjungan kami Muhammad E2E ${id} C`,
+    english: `O Allah, send blessings upon our master Muhammad E2E ${id} C`,
+  };
+
+  // Pola cleanup + verifikasi yang sama dengan blok temp shalawat di
+  // atas: afterAll selalu jalan walau test gagal, dan verifikasi
+  // TIDAK dibungkus try/catch supaya kebocoran gagal keras.
+  test.afterAll(async ({ browser }) => {
+    if (!articleId) return;
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      await cleanupArticle(page, articleId);
+      await page.goto("/admin/articles");
+      await expect(page).not.toHaveURL(/\/admin\/login/);
+      await expect(page.getByText(title, { exact: true })).toHaveCount(0);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("bait numbers continue across sections at render level", async ({
+    page,
+  }) => {
+    test.skip(
+      isProductionTarget,
+      "temp-article pattern; no deterministic multi-section article in production",
+    );
+    test.skip(
+      !process.env.E2E_ADMIN_EMAIL || !process.env.E2E_ADMIN_PASSWORD,
+      "needs admin credentials",
+    );
+    await test.step("Buat artikel sementara 2 section, 3 unit Arab", async () => {
+      await loginAsAdmin(page);
+      const created = await createDraftArticle(page, title);
+      articleId = created.id;
+      await fillUnitLayers(page, 0, unit1);
+      await page
+        .getByRole("button", { name: "+ Tambah unit" })
+        .click();
+      await fillUnitLayers(page, 1, unit2);
+      // Tombol "Tambah bagian" memakai plus full-width (U+FF0B),
+      // jadi dicocokkan dengan regex, bukan string persis.
+      await page
+        .getByRole("button", { name: /Tambah bagian/ })
+        .click();
+      await page.getByLabel("Judul bagian 2").fill("Bagian kedua dummy");
+      // Unit ke-3 global (nth(2)): unit pertama section 2.
+      await fillUnitLayers(page, 2, unit3);
+      await Promise.all([
+        page.waitForResponse(
+          (r) =>
+            r.request().method() === "POST" &&
+            r.url().includes(`/admin/articles/${articleId}`),
+        ),
+        page.getByRole("button", { name: "Simpan perubahan" }).click(),
+      ]);
+      await expect(page.getByText("Perubahan tersimpan.")).toBeVisible();
+    });
+    await test.step("Publish dan temukan slug asli", async () => {
+      await publishArticle(page, articleId!);
+      await expect(
+        page.getByText("Artikel berhasil dipublish."),
+      ).toBeVisible();
+      await page.goto("/shalawat");
+      const card = page
+        .locator('a[href^="/baca/"]')
+        .filter({ has: page.locator("h3", { hasText: title }) })
+        .first();
+      await expect(card).toBeVisible();
+      const href = await card.getAttribute("href");
+      if (href) slug = href.replace("/baca/", "");
+    });
+    await test.step("Buka halaman baca artikel sementara", async () => {
+      await page.goto(`/baca/${slug}`);
+      await expect(page).toHaveURL(`/baca/${slug}`);
+    });
+    await test.step("TOC menaut Bait 1-3 ke id yang sama", async () => {
+      for (const n of [1, 2, 3]) {
+        const link = page.getByRole("link", { name: `Bait ${n}` }).first();
+        await expect(link).toBeVisible();
+        await expect(link).toHaveAttribute("href", `#bait-${n}`);
+      }
+    });
+    await test.step("Tiap id bait muncul tepat sekali", async () => {
+      for (const n of [1, 2, 3]) {
+        await expect(page.locator(`#bait-${n}`)).toHaveCount(1);
+      }
+    });
+    await test.step("Bait pertama section 2 adalah #bait-3, bukan #bait-1", async () => {
+      const section1 = page.locator("section", {
+        has: page.getByRole("heading", {
+          name: "Bagian dummy",
+          exact: true,
+        }),
+      });
+      const section2 = page.locator("section", {
+        has: page.getByRole("heading", { name: "Bagian kedua dummy" }),
+      });
+      await expect(section1.locator("#bait-1")).toBeVisible();
+      await expect(section1.locator("#bait-2")).toBeVisible();
+      await expect(section2.locator("#bait-3")).toBeVisible();
+      await expect(section2.locator("#bait-1")).toHaveCount(0);
+      // Lingkaran bernomor kartu #bait-3 menampilkan "3": span
+      // aria-hidden di dalam kartu (tombol salin hanya punya span
+      // sr-only kosong, jadi tidak ikut tercocok).
+      await expect(
+        page.locator("#bait-3 span[aria-hidden='true']"),
+      ).toHaveText("3");
+    });
+    await test.step("Tidak ada overflow horizontal", async () => {
+      const r = await page.evaluate(() => ({
+        sw: document.documentElement.scrollWidth,
+        iw: window.innerWidth,
+      }));
+      expect(r.sw).toBe(r.iw);
+    });
+  });
+});
+
 // Test Maulid Baca Juga dulunya mengassert tepat 2 link pada artikel
 // maulid ambient pertama; di CI/lokal tidak ada satu pun maulid
 // sehingga test ini skip selamanya. Blok serial ini membuatnya
@@ -969,6 +1121,138 @@ test.describe("list, search, request", () => {
         .first()
         .getAttribute("href");
       expect(searchHrefs[0]).toBe(firstLatest);
+    });
+  });
+
+  // Fix 6 Task 9 men-tokenisasi panel no-results pencarian, tapi
+  // cabang itu tidak punya test yang ter-commit. Test ini memakai
+  // query yang dipastikan tidak cocok dengan apa pun (BUKAN
+  // pencarian kosong — itu sudah diuji di atas dan menampilkan semua
+  // bacaan) dan mengassert panelnya tampil dengan gaya token dan
+  // copy empty-state-nya. Read-only di semua lingkungan, termasuk
+  // production: tidak membuat atau mengubah data apa pun, jadi
+  // tidak ada skip production di sini.
+  test("search with no matches shows the tokenized no-results panel", async ({
+    page,
+  }) => {
+    const query = `zz-tidak-ada-${runId()}`;
+    await test.step("Buka /search dengan query tanpa hasil", async () => {
+      await page.goto(`/search?q=${encodeURIComponent(query)}`);
+      await expect(
+        page.getByRole("heading", { name: "Pencarian" }),
+      ).toBeVisible();
+    });
+    await test.step("Panel empty-state tampil dengan copy yang benar", async () => {
+      await expect(
+        page
+          .locator("main")
+          .getByText(`Tidak ada hasil untuk “${query}”. Coba kata kunci lain.`),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: "Request shalawat" }),
+      ).toHaveAttribute("href", "/request-shalawat");
+      await expect(
+        page.getByRole("link", { name: "request maulid" }),
+      ).toHaveAttribute("href", "/request-maulid");
+    });
+    await test.step("Tidak ada kartu artikel", async () => {
+      await expect(page.locator('a[href^="/baca/"]')).toHaveCount(0);
+    });
+    await test.step("Panel memakai gaya token (bukan panel polos)", async () => {
+      // Panel no-results adalah satu-satunya div.mt-8 langsung di
+      // bawah <main> (pembungkus form memakai mt-6).
+      //
+      // Chromium modern men-serialisasi warna Tailwind v4 yang
+      // memakai color-mix (bg-white/60) dalam oklab, sementara rgba
+      // literal tetap rgba — jadi string computed style tidak bisa
+      // dibandingkan mentah dengan toHaveCSS. Yang dikunci adalah
+      // NILAI warnanya: latar putih 60% dan border token #cfe3d3.
+      // Keduanya dinormalisasi ke sRGB di dalam evaluate (oklab ->
+      // sRGB) lalu dibandingkan dengan toleransi kanal 2/255 dan
+      // alfa 0,01.
+      const panel = page.locator("main > div.mt-8");
+      const styles = await panel.evaluate((el) => {
+        const parse = (c: string): [number, number, number, number] => {
+          const rgba = c.match(
+            /^rgba?\(\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\s*\)$/,
+          );
+          if (rgba) {
+            return [
+              Number(rgba[1]),
+              Number(rgba[2]),
+              Number(rgba[3]),
+              rgba[4] === undefined ? 1 : Number(rgba[4]),
+            ];
+          }
+          const lab = c.match(
+            /^oklab\(\s*([\d.]+)\s+([-\d.e]+)\s+([-\d.e]+)(?:\s*\/\s*([\d.]+))?\s*\)$/,
+          );
+          if (lab) {
+            const [L, a, b] = [
+              Number(lab[1]),
+              Number(lab[2]),
+              Number(lab[3]),
+            ];
+            const alpha = lab[4] === undefined ? 1 : Number(lab[4]);
+            const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+            const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+            const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+            const l = l_ ** 3;
+            const m = m_ ** 3;
+            const s = s_ ** 3;
+            const toSrgb = (x: number) =>
+              255 *
+              (x <= 0.0031308
+                ? 12.92 * x
+                : 1.055 * Math.pow(x, 1 / 2.4) - 0.055);
+            return [
+              toSrgb(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+              toSrgb(
+                -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+              ),
+              toSrgb(
+                -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+              ),
+              alpha,
+            ];
+          }
+          throw new Error(`format warna tak dikenal: ${c}`);
+        };
+        const cs = getComputedStyle(el);
+        return {
+          bg: parse(cs.backgroundColor),
+          borderTop: parse(cs.borderTopColor),
+          borderStyle: cs.borderStyle,
+          borderRadius: cs.borderRadius,
+        };
+      });
+      // bg-white/60 = putih (255,255,255) alfa 0,6; border-line =
+      // #cfe3d3 = rgb(207,227,211) alfa 1.
+      const close = (
+        got: [number, number, number, number],
+        want: [number, number, number, number],
+      ) => {
+        for (let i = 0; i < 3; i++) {
+          expect(Math.abs(got[i] - want[i])).toBeLessThanOrEqual(2);
+        }
+        expect(Math.abs(got[3] - want[3])).toBeLessThanOrEqual(0.01);
+      };
+      close(styles.bg, [255, 255, 255, 0.6]);
+      close(styles.borderTop, [207, 227, 211, 1]);
+      expect(styles.borderStyle).toBe("dashed");
+      expect(styles.borderRadius).toBe("16px");
+    });
+    await test.step("Input pencarian mempertahankan query", async () => {
+      await expect(page.getByLabel("Cari artikel")).toHaveValue(query);
+    });
+    await test.step("Tidak ada overflow horizontal di 390px", async () => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(`/search?q=${encodeURIComponent(query)}`);
+      const r = await page.evaluate(() => ({
+        sw: document.documentElement.scrollWidth,
+        iw: window.innerWidth,
+      }));
+      expect(r.sw).toBe(r.iw);
     });
   });
 
