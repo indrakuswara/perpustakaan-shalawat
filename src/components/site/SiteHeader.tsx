@@ -55,7 +55,12 @@ export default function SiteHeader() {
             aria-label="Navigasi utama"
           >
             {NAV.map((n) => (
-              <Link key={n.href} href={n.href} className={linkClass(n.href)}>
+              <Link
+                key={n.href}
+                href={n.href}
+                className={linkClass(n.href)}
+                aria-current={isActiveLink(pathname, n.href) ? "page" : undefined}
+              >
                 {n.label}
               </Link>
             ))}
@@ -103,6 +108,7 @@ export default function SiteHeader() {
                 key={n.href}
                 href={n.href}
                 className={linkClass(n.href)}
+                aria-current={isActiveLink(pathname, n.href) ? "page" : undefined}
                 onClick={() => setOpen(false)}
               >
                 {n.label}

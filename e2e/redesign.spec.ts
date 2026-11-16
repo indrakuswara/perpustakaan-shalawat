@@ -20,9 +20,17 @@ test.describe("shared chrome", () => {
       const desktopNav = page.getByRole("navigation", {
         name: "Navigasi utama",
       });
-      await expect(
-        desktopNav.getByRole("link", { name: "Beranda" }),
-      ).toBeVisible();
+      const beranda = desktopNav.getByRole("link", { name: "Beranda" });
+      await expect(beranda).toBeVisible();
+      // Dark variant: the active link is gold-soft with a gold
+      // underline, an inactive link is on-dark, and only the active
+      // link carries aria-current="page".
+      await expect(beranda).toHaveCSS("color", "rgb(227, 197, 102)");
+      await expect(beranda).toHaveCSS("text-decoration-line", "underline");
+      await expect(beranda).toHaveAttribute("aria-current", "page");
+      const shalawat = desktopNav.getByRole("link", { name: "Shalawat" });
+      await expect(shalawat).toHaveCSS("color", "rgb(244, 250, 245)");
+      await expect(shalawat).not.toHaveAttribute("aria-current", "page");
     });
   });
 
@@ -45,11 +53,38 @@ test.describe("shared chrome", () => {
       await firstCard.click();
       await expect(page).toHaveURL(/\/baca\//);
     });
-    await test.step("Header statis", async () => {
-      await expect(page.locator("header").first()).toHaveCSS(
-        "position",
-        "static",
+    await test.step("Header statis berlatar terang", async () => {
+      const header = page.locator("header").first();
+      await expect(header).toHaveCSS("position", "static");
+      await expect(header).toHaveCSS(
+        "background-color",
+        "rgb(230, 240, 232)",
       );
+    });
+  });
+
+  test("list pages mark their nav link active with the light-green pill", async ({
+    page,
+  }) => {
+    await test.step("Shalawat aktif di /shalawat", async () => {
+      await page.goto("/shalawat");
+      const desktopNav = page.getByRole("navigation", {
+        name: "Navigasi utama",
+      });
+      const link = desktopNav.getByRole("link", { name: "Shalawat" });
+      await expect(link).toHaveCSS("background-color", "rgb(244, 250, 245)");
+      await expect(link).toHaveCSS("color", "rgb(6, 78, 59)");
+      await expect(link).toHaveAttribute("aria-current", "page");
+    });
+    await test.step("Maulid aktif di /maulid", async () => {
+      await page.goto("/maulid");
+      const desktopNav = page.getByRole("navigation", {
+        name: "Navigasi utama",
+      });
+      const link = desktopNav.getByRole("link", { name: "Maulid" });
+      await expect(link).toHaveCSS("background-color", "rgb(244, 250, 245)");
+      await expect(link).toHaveCSS("color", "rgb(6, 78, 59)");
+      await expect(link).toHaveAttribute("aria-current", "page");
     });
   });
 
