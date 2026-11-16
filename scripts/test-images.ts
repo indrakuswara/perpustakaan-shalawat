@@ -34,36 +34,83 @@ console.log("== SOURCES.md records source, license, and URL ==");
 
 const md = readFileSync("public/images/SOURCES.md", "utf8");
 const lines = md.split(/\r?\n/);
-// Table row for a file: the line starting with `| <filename> | ...`
-// Provenance is checked within THAT row only, so a row missing its own
-// source, license, or URL cannot hide behind the intro or other rows.
-function rowFor(f: string): string | undefined {
-  return lines.find((line) => line.startsWith(`| ${f} |`));
+// Tabel SOURCES.md di-parse sebagai tabel, bukan dicocokkan per baris
+// mentah: header dipetakan ke indeks kolom, lalu tiap baris data dipecah
+// jadi sel dan provenance dicek per sel. Baris yang kehilangan sumber,
+// lisensi, atau URL-nya sendiri tidak bisa bersembunyi di balik intro
+// atau baris lain, dan perubahan urutan kolom tidak merusak cek ini.
+function splitRow(line: string): string[] {
+  return line
+    .split("|")
+    .slice(1, -1)
+    .map((cell) => cell.trim());
+}
+const headerIdx = lines.findIndex((line) => line.startsWith("| File |"));
+const header = headerIdx >= 0 ? splitRow(lines[headerIdx]) : [];
+function colIndex(name: string): number {
+  return header.findIndex((cell) =>
+    cell.toLowerCase().includes(name.toLowerCase()),
+  );
+}
+const COL = {
+  file: colIndex("File"),
+  source: colIndex("Sumber"),
+  license: colIndex("Lisensi"),
+  url: colIndex("URL"),
+  notes: colIndex("Keterangan"),
+};
+ok(
+  "SOURCES.md has a table header with File/Source/License/URL/Notes columns",
+  headerIdx >= 0 &&
+    COL.file >= 0 &&
+    COL.source >= 0 &&
+    COL.license >= 0 &&
+    COL.url >= 0 &&
+    COL.notes >= 0,
+);
+function rowFor(f: string): string[] | undefined {
+  const line = lines.find((l) => {
+    if (!l.startsWith("|")) return false;
+    return splitRow(l)[COL.file] === f;
+  });
+  return line === undefined ? undefined : splitRow(line);
+}
+function isHttpsUrl(value: string): boolean {
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 for (const f of FILES) {
   const row = rowFor(f);
+  ok(`SOURCES.md records ${f}`, row !== undefined);
   ok(
-    `SOURCES.md records ${f} with source, license, and URL`,
-    row !== undefined &&
-      row.includes("Pexels") &&
-      row.includes("Pexels License") &&
-      row.includes("http"),
+    `SOURCES.md records ${f} with source Pexels`,
+    row?.[COL.source] === "Pexels",
+  );
+  ok(
+    `SOURCES.md records ${f} with license Pexels License`,
+    row?.[COL.license] === "Pexels License",
+  );
+  ok(
+    `SOURCES.md records ${f} with an https URL`,
+    isHttpsUrl(row?.[COL.url] ?? ""),
   );
 }
 
 console.log("== Makna photo is not the Sheikh Zayed hero ==");
 
-// Whole Makna table line, not just the filename cell: the old regex
-// stopped at the first `|` after the filename, so it could never match
-// a wrong mosque name in the description cell.
-const maknaRow = rowFor("makna-masjid.jpg") ?? "";
+// Sel Keterangan baris Makna, bukan seluruh baris: nama masjid
+// tercatat di sel itu.
+const maknaNotes = rowFor("makna-masjid.jpg")?.[COL.notes] ?? "";
 ok(
   "SOURCES.md row for makna-masjid.jpg does not mention sheikh zayed",
-  !/sheikh zayed/i.test(maknaRow),
+  !/sheikh zayed/i.test(maknaNotes),
 );
 ok(
   "SOURCES.md row for makna-masjid.jpg names a different mosque (Masjid Biru)",
-  /masjid biru|blue mosque/i.test(maknaRow),
+  /masjid biru|blue mosque/i.test(maknaNotes),
 );
 
 console.log(`\n${passed} lulus, ${failed} gagal`);

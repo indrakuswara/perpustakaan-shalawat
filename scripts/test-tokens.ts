@@ -212,5 +212,22 @@ ok(
   /<p lang="en" className="[^"]*text-english[^"]*"/.test(printView),
 );
 
+console.log("== raw teal hex (no Tailwind teal leftovers) ==");
+
+// Follow-up (i): guard "teal-" saja tidak cukup, hex mentah #0f766e
+// (Tailwind teal-700) juga tidak boleh muncul di sumber.
+const tealHexSources: Array<[string, string]> = [
+  ["globals.css", css],
+  ["layout.tsx", rootLayout],
+  ["(site)/layout.tsx", siteLayout],
+  ["(home)/layout.tsx", homeLayout],
+  ["SiteChrome.tsx", siteChrome],
+  ["PrintView.tsx", printView],
+  ["PrintToolbar.tsx", printToolbar],
+];
+for (const [label, content] of tealHexSources) {
+  ok(`removed: ${label} has no #0f766e`, !/#0f766e/i.test(content));
+}
+
 console.log(`\n${passed} lulus, ${failed} gagal`);
 process.exit(failed ? 1 : 0);
