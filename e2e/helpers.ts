@@ -190,7 +190,9 @@ export async function cleanupArticle(page: Page, id: string | null): Promise<voi
 // macet ~30 dtk di #email karena sesi sudah login (/admin/login
 // me-redirect ke dashboard) lalu gagal diam-diam tanpa menghapus apa
 // pun — persis yang membuat cleanup 3 maulid timeout di 60 dtk
-// (hanya 1 dari 3 terhapus). Dipakai cleanup maulid (3 artikel).
+// (hanya 1 dari 3 terhapus). Dipakai untuk menghapus beberapa
+// artikel sementara dengan satu kali login (mis. cleanup 3 artikel
+// maulid); generik, bisa dipakai ulang untuk artikel sementara lain.
 export async function cleanupArticles(
   page: Page,
   ids: (string | null)[],

@@ -364,7 +364,6 @@ test.describe.serial("reading page temp shalawat", () => {
   const title = testTitle(id);
   let slug = slugify(title);
   let articleId: string | null = null;
-  let deleted = false;
   const unit1 = {
     arab: "صَلَّى اللهُ عَلَى مُحَمَّدٍ",
     latin: `Shallallahu 'ala Muhammad E2E ${id}`,
@@ -378,12 +377,32 @@ test.describe.serial("reading page temp shalawat", () => {
     english: `All praise belongs to Allah, Lord of the worlds E2E ${id}`,
   };
 
+  // Cleanup + verifikasi tinggal di afterAll, BUKAN di test backstop
+  // terpisah: dalam describe serial, satu test gagal membuat test
+  // sisanya "did not run", jadi test backstop tidak pernah jalan
+  // tepat pada jalur yang membutuhkannya (serial abort). afterAll
+  // selalu jalan walau test gagal. Cleanup-nya sendiri tetap
+  // best-effort (cleanupArticle menelan kegagalan), tapi verifikasi
+  // di bawah TIDAK dibungkus try/catch: bila judul masih terdaftar,
+  // afterAll ini gagal keras dan kebocoran tidak lolos diam-diam.
+  // Verifikasi memakai sesi yang sama dengan cleanup di atas (tidak
+  // login ulang: /admin/login me-redirect ke dashboard bila sesi
+  // sudah login sehingga #email tidak ada). Bila login cleanup gagal
+  // diam-diam, goto /admin/articles me-redirect ke /admin/login dan
+  // assert di bawah gagal keras — itu yang diinginkan.
+  // Flag `deleted` dihapus: afterAll hanya jalan sekali dan
+  // deleteArticle sudah guard 404, jadi cleanup ini idempotent dan
+  // tidak butuh early-return berbasis flag (flag lama justru
+  // menghalangi bersih-bersih kedua bila verifikasi gagal).
   test.afterAll(async ({ browser }) => {
-    if (deleted || !articleId) return;
+    if (!articleId) return;
     const context = await browser.newContext();
     const page = await context.newPage();
     try {
       await cleanupArticle(page, articleId);
+      await page.goto("/admin/articles");
+      await expect(page).not.toHaveURL(/\/admin\/login/);
+      await expect(page.getByText(title, { exact: true })).toHaveCount(0);
     } finally {
       await context.close();
     }
@@ -510,24 +529,8 @@ test.describe.serial("reading page temp shalawat", () => {
     });
   });
 
-  // Backstop cleanup, pola yang sama dengan test pita: afterAll saja
-  // tidak cukup karena cleanupArticle menelan kegagalan login secara
-  // diam. Test terakhir ini menghapus sisa artikel sementara bila
-  // ada, lalu memverifikasi judulnya hilang dari daftar admin.
-  test("cleanup: no test article remains", async ({ page }) => {
-    test.skip(articleId === null, "no test article was created");
-    await test.step("Hapus sisa artikel tes bila ada", async () => {
-      if (!deleted && articleId) {
-        await cleanupArticle(page, articleId);
-        deleted = true;
-      }
-    });
-    await test.step("Verifikasi tidak ada sisa artikel tes", async () => {
-      await page.goto("/admin/articles");
-      await expect(page).not.toHaveURL(/\/admin\/login/);
-      await expect(page.getByText(title, { exact: true })).toHaveCount(0);
-    });
-  });
+  // (Tidak ada test backstop terpisah: cleanup + verifikasi tinggal
+  // di afterAll di atas — lihat komentarnya.)
 });
 
 // Test Maulid Baca Juga dulunya mengassert tepat 2 link pada artikel
@@ -545,14 +548,34 @@ test.describe.serial("maulid related temp articles", () => {
   const titles = ["A", "B", "C"].map((s) => `${testTitle(id)} ${s}`);
   const slugs = ["", "", ""];
   const articleIds: (string | null)[] = [null, null, null];
-  let deleted = false;
 
+  // Cleanup + verifikasi tinggal di afterAll, BUKAN di test backstop
+  // terpisah: dalam describe serial, satu test gagal membuat test
+  // sisanya "did not run", jadi test backstop tidak pernah jalan
+  // tepat pada jalur yang membutuhkannya (serial abort). afterAll
+  // selalu jalan walau test gagal. Cleanup-nya sendiri tetap
+  // best-effort (cleanupArticles menelan kegagalan), tapi verifikasi
+  // di bawah TIDAK dibungkus try/catch: bila satu judul masih
+  // terdaftar, afterAll ini gagal keras dan kebocoran tidak lolos
+  // diam-diam. Verifikasi memakai sesi yang sama dengan cleanup di
+  // atas (tidak login ulang: /admin/login me-redirect ke dashboard
+  // bila sesi sudah login sehingga #email tidak ada). Bila login
+  // cleanup gagal diam-diam, goto /admin/articles me-redirect ke
+  // /admin/login dan assert di bawah gagal keras — itu yang
+  // diinginkan. Flag `deleted` dihapus: afterAll hanya jalan sekali
+  // dan deleteArticle sudah guard 404, jadi cleanup ini idempotent
+  // dan tidak butuh early-return berbasis flag.
   test.afterAll(async ({ browser }) => {
-    if (deleted || articleIds.every((a) => a === null)) return;
+    if (articleIds.every((a) => a === null)) return;
     const context = await browser.newContext();
     const page = await context.newPage();
     try {
       await cleanupArticles(page, articleIds);
+      await page.goto("/admin/articles");
+      await expect(page).not.toHaveURL(/\/admin\/login/);
+      for (const t of titles) {
+        await expect(page.getByText(t, { exact: true })).toHaveCount(0);
+      }
     } finally {
       await context.close();
     }
@@ -643,26 +666,8 @@ test.describe.serial("maulid related temp articles", () => {
     });
   });
 
-  // Backstop cleanup, pola yang sama dengan test pita.
-  test("cleanup: no test articles remain", async ({ page }) => {
-    test.skip(
-      articleIds.every((a) => a === null),
-      "no test articles were created",
-    );
-    await test.step("Hapus sisa artikel tes bila ada", async () => {
-      if (!deleted) {
-        await cleanupArticles(page, articleIds);
-        deleted = true;
-      }
-    });
-    await test.step("Verifikasi tidak ada sisa artikel tes", async () => {
-      await page.goto("/admin/articles");
-      await expect(page).not.toHaveURL(/\/admin\/login/);
-      for (const t of titles) {
-        await expect(page.getByText(t, { exact: true })).toHaveCount(0);
-      }
-    });
-  });
+  // (Tidak ada test backstop terpisah: cleanup + verifikasi tinggal
+  // di afterAll di atas — lihat komentarnya.)
 });
 
 // Inspiration sebelumnya tidak diassert di mana pun secara
