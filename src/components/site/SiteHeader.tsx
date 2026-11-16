@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BrandMark from "./BrandMark";
+import { useReadingNav } from "./ReadingNavContext";
 
 const NAV = [
   { label: "Beranda", href: "/" },
@@ -24,9 +25,23 @@ export default function SiteHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const isHome = pathname === "/";
+  // Override halaman baca (spec 6.2, Task 8): pathname /baca/<slug>
+  // tidak menandai tautan apa pun, jadi kategori artikel yang dipasang
+  // halaman baca lewat context yang dipakai sebagai penanda aktif.
+  // Route lain tidak pernah mengisi context ini: logika pathname di
+  // bawah tidak berubah untuk mereka.
+  const { activeType } = useReadingNav();
+  const activeOverride =
+    activeType === "SHALAWAT"
+      ? "/shalawat"
+      : activeType === "MAULID"
+        ? "/maulid"
+        : null;
+  const isActive = (href: string) =>
+    activeOverride ? href === activeOverride : isActiveLink(pathname, href);
 
   const linkClass = (href: string) => {
-    const active = isActiveLink(pathname, href);
+    const active = isActive(href);
     if (isHome) {
       return active
         ? "rounded-full px-3 py-2 text-sm font-medium text-gold-soft underline decoration-gold decoration-2 underline-offset-8"
@@ -59,7 +74,7 @@ export default function SiteHeader() {
                 key={n.href}
                 href={n.href}
                 className={linkClass(n.href)}
-                aria-current={isActiveLink(pathname, n.href) ? "page" : undefined}
+                aria-current={isActive(n.href) ? "page" : undefined}
               >
                 {n.label}
               </Link>
@@ -108,7 +123,7 @@ export default function SiteHeader() {
                 key={n.href}
                 href={n.href}
                 className={linkClass(n.href)}
-                aria-current={isActiveLink(pathname, n.href) ? "page" : undefined}
+                aria-current={isActive(n.href) ? "page" : undefined}
                 onClick={() => setOpen(false)}
               >
                 {n.label}

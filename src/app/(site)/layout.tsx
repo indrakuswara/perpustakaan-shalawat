@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import SiteHeader from "@/components/site/SiteHeader";
 import SiteFooter from "@/components/site/SiteFooter";
+import { ReadingNavProvider } from "@/components/site/ReadingNavContext";
 
 export const metadata: Metadata = {
   title: {
@@ -24,10 +25,12 @@ export default function SiteLayout({
       >
         Lewati ke konten
       </a>
-      <SiteHeader />
-      <div id="konten" className="flex-1">
-        {children}
-      </div>
+      <ReadingNavProvider>
+        <SiteHeader />
+        <div id="konten" className="flex-1">
+          {children}
+        </div>
+      </ReadingNavProvider>
       <SiteFooter />
     </div>
   );

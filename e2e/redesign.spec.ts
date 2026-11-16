@@ -282,7 +282,129 @@ test.describe("homepage", () => {
   });
 });
 
-// Reviewer Task 7, Fix 1 (Important): jalur render pita Daily
+test.describe("reading page", () => {
+  test("reading page has 3 columns and bait TOC", async ({ page }) => {
+    await test.step("Buka artikel shalawat pertama", async () => {
+      await page.goto("/shalawat");
+      await page.locator('a[href^="/baca/"]').first().click();
+    });
+    await test.step("TOC bait dan kartu bernomor cocok", async () => {
+      await expect(page.getByRole("link", { name: "Bait 1" }).first()).toBeVisible();
+      const href = await page.getByRole("link", { name: "Bait 1" }).first().getAttribute("href");
+      expect(href).toBe("#bait-1");
+      await expect(page.locator("#bait-1")).toBeVisible();
+    });
+    await test.step("Tidak ada teks BAIT n, legenda, atau ornamen berlian", async () => {
+      await expect(page.locator("main")).not.toContainText("BAIT 1");
+      await expect(page.locator("main")).not.toContainText("Arab • Latin");
+      await expect(page.locator("main")).not.toContainText("✦");
+      await expect(page.locator("main")).not.toContainText("◆");
+    });
+    await test.step("Share dan Unduh tampil sekali per viewport", async () => {
+      await expect(page.getByRole("button", { name: "Bagikan" })).toHaveCount(1);
+    });
+    await test.step("Nav Shalawat aktif di halaman baca shalawat", async () => {
+      const desktopNav = page.getByRole("navigation", {
+        name: "Navigasi utama",
+      });
+      await expect(
+        desktopNav.getByRole("link", { name: "Shalawat" }),
+      ).toHaveAttribute("aria-current", "page");
+    });
+    await test.step("Geometri 3 kolom di 1280px", async () => {
+      const cols = await page.evaluate(() => {
+        const grid = document.querySelector(
+          '[data-testid="reading-grid"]',
+        ) as HTMLElement | null;
+        if (!grid) return null;
+        const cs = getComputedStyle(grid);
+        return {
+          template: cs.gridTemplateColumns,
+          gap: cs.columnGap,
+        };
+      });
+      expect(cols).not.toBeNull();
+      const widths = (cols!.template as string)
+        .trim()
+        .split(/\s+/)
+        .map((v) => parseFloat(v));
+      expect(widths).toHaveLength(3);
+      expect(widths[0]).toBe(224);
+      expect(widths[2]).toBe(304);
+      // Kolom tengah: 1280 - 224 - 304 - 2*26 gap - 2*20 padding = 660
+      // (angka 668 di spek adalah pembulatan "±668").
+      expect(Math.abs(widths[1] - 660)).toBeLessThanOrEqual(2);
+      expect(parseFloat(cols!.gap as string)).toBe(26);
+    });
+    await test.step("Tidak ada overflow horizontal", async () => {
+      const r = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth }));
+      expect(r.sw).toBe(r.iw);
+    });
+  });
+
+  test("Maulid Baca Juga shows 2 same-category items", async ({ page }) => {
+    const firstCard = await test.step("Buka daftar maulid", async () => {
+      await page.goto("/maulid");
+      return page.locator('a[href^="/baca/"]').first();
+    });
+    if ((await firstCard.count()) === 0) {
+      test.skip(
+        true,
+        "no published maulid in this environment (needs Task 11 seed / production data)",
+      );
+    }
+    await test.step("Buka artikel maulid pertama", async () => {
+      await firstCard.click();
+      await expect(page).toHaveURL(/\/baca\//);
+    });
+    await test.step("Baca Juga berisi 2 item Maulid", async () => {
+      const panel = page.locator("aside", { hasText: "Baca juga" });
+      await expect(panel.locator('a[href^="/baca/"]')).toHaveCount(2);
+    });
+    await test.step("Nav Maulid aktif di halaman baca maulid", async () => {
+      const desktopNav = page.getByRole("navigation", {
+        name: "Navigasi utama",
+      });
+      await expect(
+        desktopNav.getByRole("link", { name: "Maulid" }),
+      ).toHaveAttribute("aria-current", "page");
+    });
+  });
+
+  // Carry requirement (b) dari review Task 3: artikel dengan blocks
+  // tapi NOL unit Arab harus menyembunyikan panel TOC sepenuhnya
+  // (buildTocItems mengembalikan kind "bait" dengan items kosong).
+  // Deterministik di lokal/CI karena seed e2e-seed-bacaan-deploy ada
+  // di sana; seed itu TIDAK ada di production (script seed menolak
+  // Postgres), jadi test ini skip di production.
+  test("article without Arab units shows no TOC", async ({ page }) => {
+    test.skip(
+      isProductionTarget,
+      "seed article e2e-seed-bacaan-deploy does not exist in production",
+    );
+    const resp = await test.step("Buka artikel seed tanpa unit Arab", async () => {
+      return page.goto("/baca/e2e-seed-bacaan-deploy");
+    });
+    if (resp?.status() === 404) {
+      test.skip(true, "seed article e2e-seed-bacaan-deploy not found (404)");
+    }
+    await test.step("Tidak ada panel TOC maupun dropdown", async () => {
+      await expect(
+        page.getByRole("link", { name: "Bait 1" }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: "Daftar isi" }),
+      ).toHaveCount(0);
+      await expect(page.locator('[id^="bait-"]')).toHaveCount(0);
+    });
+    await test.step("Unit teks tampil sebagai prosa tanpa lingkaran bernomor", async () => {
+      await expect(
+        page.locator("main").getByText("Isi dummy untuk tes deploy."),
+      ).toBeVisible();
+    });
+  });
+});
+
 // Inspiration sebelumnya tidak diassert di mana pun secara
 // tanpa-syarat — test homepage hanya mengecek pita bila kebetulan
 // tampil, sementara artikel seed lokal/CI tidak punya satu pun unit

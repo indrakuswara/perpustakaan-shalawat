@@ -49,7 +49,7 @@ export default function CopyButton({
       onClick={handleCopy}
       aria-label={label}
       title={label}
-      className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-stone-400 transition hover:bg-stone-100 hover:text-stone-700 focus-visible:outline-2 focus-visible:outline-emerald-800 active:text-stone-900"
+      className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-muted transition hover:bg-panel hover:text-ink focus-visible:outline-2 focus-visible:outline-emerald-800 active:text-ink"
     >
       {state === "copied" ? (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="text-emerald-700">

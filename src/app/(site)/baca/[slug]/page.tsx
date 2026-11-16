@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getPublishedBySlug } from "@/lib/db";
+import { getPublishedBySlug, listPublishedContents } from "@/lib/db";
+import { pickRelated } from "@/lib/related";
 import { SITE_URL } from "@/lib/site-url";
 import ReaderView from "@/components/site/ReaderView";
 import ShareButton from "@/components/site/ShareButton";
 import PrintButton from "@/components/site/PrintButton";
+import { SetReadingNavSection } from "@/components/site/ReadingNavContext";
 
 const TYPE_LABEL = { SHALAWAT: "Shalawat", MAULID: "Maulid" } as const;
 const TYPE_HREF = { SHALAWAT: "/shalawat", MAULID: "/maulid" } as const;
@@ -49,12 +51,18 @@ export default async function BacaPage({
   // Hanya yang PUBLISHED yang bisa dibaca — draft otomatis 404.
   const article = await getPublishedBySlug(slug);
   if (!article) notFound();
+  const related = pickRelated(
+    await listPublishedContents(article.type),
+    article.slug,
+    4,
+  );
 
   return (
-    <main className="px-4 py-10 md:py-14">
-      <article className={article.blocks ? "mx-auto max-w-5xl" : "mx-auto max-w-2xl"}>
-        <nav className="text-sm text-stone-600" aria-label="Breadcrumb">
-          <Link href="/" className="hover:text-stone-800">
+    <main>
+      <SetReadingNavSection type={article.type} />
+      <div className="mx-auto max-w-7xl px-5 pt-10 md:pt-14">
+        <nav className="text-sm text-muted" aria-label="Breadcrumb">
+          <Link href="/" className="transition hover:text-ink">
             Beranda
           </Link>
           <span aria-hidden className="mx-2">
@@ -62,93 +70,55 @@ export default async function BacaPage({
           </span>
           <Link
             href={TYPE_HREF[article.type]}
-            className="hover:text-stone-800"
+            className="transition hover:text-ink"
           >
             {TYPE_LABEL[article.type]}
           </Link>
         </nav>
 
-        <p className="mt-6 text-sm font-medium tracking-wide text-emerald-800 uppercase">
-          {TYPE_LABEL[article.type]}
-        </p>
-        <h1 className="mt-2 font-serif text-3xl leading-tight font-semibold text-stone-900 md:text-4xl">
+        <h1 className="mt-2 font-display text-[36px] leading-tight text-ink md:text-[44px]">
           {article.title}
         </h1>
         {article.description && (
-          <p className="mt-4 font-serif text-lg text-stone-600 italic md:text-justify">
+          <p className="mt-4 font-serif text-lg text-muted italic md:text-justify">
             {article.description}
           </p>
         )}
 
-        <div className="mt-6 flex flex-wrap gap-3">
+        <div className="mt-6 flex flex-wrap gap-3 lg:hidden">
           <ShareButton
             title={article.title}
             url={`${SITE_URL}/baca/${article.slug}`}
           />
           <PrintButton slug={article.slug} />
         </div>
+      </div>
 
-        <div
-          aria-hidden
-          className="my-8 flex items-center gap-3 text-emerald-900/50"
-        >
-          <span className="h-px flex-1 bg-stone-200" />
-          <span>✦</span>
-          <span className="h-px flex-1 bg-stone-200" />
-        </div>
+      <div className="mt-8">
+        <ReaderView
+          blocks={article.blocks}
+          article={article}
+          related={related}
+          body={article.body}
+        />
+      </div>
 
-        {article.blocks ? (
-          <ReaderView blocks={article.blocks} />
-        ) : (
-          <div className="font-serif text-lg leading-loose whitespace-pre-wrap text-stone-800 md:text-xl md:leading-loose md:text-justify">
-            {article.body}
-          </div>
-        )}
-
-        <section
-          aria-label="Bagikan bacaan ini"
-          className="mt-12 rounded-2xl border border-emerald-900/15 bg-emerald-50 px-6 py-8 text-center"
-        >
-          <h2 className="font-serif text-xl font-semibold text-emerald-950">
-            Bagikan bacaan ini
-          </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-stone-600">
-            Semoga bermanfaat. Bagikan kepada keluarga dan jamaah pengajian.
-            Semoga menjadi amal jariyah bersama.
-          </p>
-          <div className="mt-5 flex flex-wrap justify-center gap-3">
-            <ShareButton
-              title={article.title}
-              url={`${SITE_URL}/baca/${article.slug}`}
-            />
-            <PrintButton slug={article.slug} />
-          </div>
-        </section>
-
-        <div
-          aria-hidden
-          className="my-8 flex items-center gap-3 text-emerald-900/50"
-        >
-          <span className="h-px flex-1 bg-stone-200" />
-          <span>✦</span>
-          <span className="h-px flex-1 bg-stone-200" />
-        </div>
-
+      <div className="mx-auto max-w-7xl px-5 pb-10 md:pb-14">
         <div className="flex flex-wrap gap-3">
           <Link
             href={TYPE_HREF[article.type]}
-            className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
+            className="rounded-xl border border-line bg-card px-4 py-2 text-sm font-medium text-ink transition hover:bg-panel"
           >
             ← {TYPE_LABEL[article.type]} lainnya
           </Link>
           <Link
             href="/"
-            className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100"
+            className="rounded-xl border border-line bg-card px-4 py-2 text-sm font-medium text-ink transition hover:bg-panel"
           >
             Beranda
           </Link>
         </div>
-      </article>
+      </div>
     </main>
   );
 }
