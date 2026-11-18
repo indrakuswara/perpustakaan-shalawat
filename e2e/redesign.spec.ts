@@ -1525,6 +1525,107 @@ test.describe("list, search, request", () => {
   });
 });
 
+// Search JUDUL SAJA: query yang hanya cocok di isi bait atau deskripsi
+// TIDAK boleh mengembalikan artikel; query yang cocok di judul tetap
+// ketemu. Satu artikel sementara terbit dengan token unik di latin
+// unit 1 (masuk kolom body lewat blocksToPlainText) dan kata "dummy"
+// di deskripsi + isi (bukan di judul). Token dibuktikan dulu tampil
+// di halaman baca, supaya asersi 0 hasil di /search bukan karena
+// tokennya tidak tersimpan. Skip di production (pola temp-article).
+test.describe.serial("search title-only", () => {
+  const id = runId();
+  const title = testTitle(id);
+  let slug = slugify(title);
+  let articleId: string | null = null;
+  const bodyToken = `zzbait${id}`;
+
+  test.afterAll(async ({ browser }) => {
+    if (!articleId) return;
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      await cleanupArticle(page, articleId);
+      await page.goto("/admin/articles");
+      await expect(page).not.toHaveURL(/\/admin\/login/);
+      await expect(page.getByText(title, { exact: true })).toHaveCount(0);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("search matches title only, not body or description", async ({
+    page,
+  }) => {
+    test.skip(
+      isProductionTarget,
+      "temp-article pattern; no deterministic article in production",
+    );
+    test.skip(
+      !process.env.E2E_ADMIN_EMAIL || !process.env.E2E_ADMIN_PASSWORD,
+      "needs admin credentials",
+    );
+    await test.step("Buat artikel sementara dengan token unik di latin", async () => {
+      await loginAsAdmin(page);
+      const created = await createDraftArticle(page, title);
+      articleId = created.id;
+      await fillUnitLayers(page, 0, {
+        arab: "صَلَّى اللهُ عَلَى مُحَمَّدٍ",
+        latin: bodyToken,
+        translation: `Terjemahan dummy E2E ${id}`,
+        english: `English dummy E2E ${id}`,
+      });
+      await Promise.all([
+        page.waitForResponse(
+          (r) =>
+            r.request().method() === "POST" &&
+            r.url().includes(`/admin/articles/${articleId}`),
+        ),
+        page.getByRole("button", { name: "Simpan perubahan" }).click(),
+      ]);
+      await expect(page.getByText("Perubahan tersimpan.")).toBeVisible();
+    });
+    await test.step("Publish dan temukan slug asli", async () => {
+      await publishArticle(page, articleId!);
+      await expect(
+        page.getByText("Artikel berhasil dipublish."),
+      ).toBeVisible();
+      await page.goto("/shalawat");
+      const card = page
+        .locator('a[href^="/baca/"]')
+        .filter({ has: page.locator("h3", { hasText: title }) })
+        .first();
+      await expect(card).toBeVisible();
+      const href = await card.getAttribute("href");
+      if (href) slug = href.replace("/baca/", "");
+    });
+    await test.step("Token isi bait tampil di halaman baca", async () => {
+      await page.goto(`/baca/${slug}`);
+      await expect(page.getByText(bodyToken)).toBeVisible();
+    });
+    await test.step("Query token isi bait -> 0 hasil", async () => {
+      await page.goto(`/search?q=${encodeURIComponent(bodyToken)}`);
+      await expect(
+        page
+          .locator("main")
+          .getByText(
+            `Tidak ada hasil untuk “${bodyToken}”. Coba kata kunci lain.`,
+          ),
+      ).toBeVisible();
+      await expect(page.locator('a[href^="/baca/"]')).toHaveCount(0);
+    });
+    await test.step("Query kata deskripsi/isi (dummy) -> 0 hasil", async () => {
+      await page.goto("/search?q=dummy");
+      await expect(page.locator('a[href^="/baca/"]')).toHaveCount(0);
+    });
+    await test.step("Query judul -> artikel ketemu", async () => {
+      await page.goto(`/search?q=${encodeURIComponent(title)}`);
+      await expect(
+        page.locator(`a[href="/baca/${slug}"]`).first(),
+      ).toBeVisible();
+    });
+  });
+});
+
 // Fix reviewer whole-branch C1: latar halaman publik WAJIB token --bg
 // (#e6f0e8), bukan stone-50. Assertion menarget wrapper layout (site),
 // BUKAN <main> yang transparent — main tidak membawa background

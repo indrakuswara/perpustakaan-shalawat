@@ -344,7 +344,7 @@ export async function getPublishedBySlug(
   return rows.length ? mapContent(rows[0]) : null;
 }
 
-// Pencarian publik: judul + deskripsi + isi, HANYA yang published.
+// Pencarian publik: JUDUL SAJA, HANYA yang published.
 export async function searchPublishedContents(
   queryText: string,
   type?: ContentType,
@@ -358,9 +358,9 @@ export async function searchPublishedContents(
     params.push(type);
     sql += ` AND type = $${params.length}`;
   }
-  params.push(like, like, like);
+  params.push(like);
   const n = params.length;
-  sql += ` AND (title ILIKE $${n - 2} OR description ILIKE $${n - 1} OR body ILIKE $${n}) ORDER BY updated_at DESC`;
+  sql += ` AND title ILIKE $${n} ORDER BY updated_at DESC`;
   const rows = await query<Record<string, unknown>>(sql, params);
   return rows.map(mapContent);
 }

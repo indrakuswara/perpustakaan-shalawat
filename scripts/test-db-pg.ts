@@ -83,14 +83,14 @@ ok("updateContent ganti judul + slug", u1.title === "Shalawat Badar" && u1.slug 
 const u2 = await updateContent(c2.id, { body: "isi baru" });
 ok("updateContent tanpa ganti judul slug tetap", u2.slug === "shalawat-badar");
 
-// --- search (judul + deskripsi + isi, hanya published) ---
+// --- search (JUDUL SAJA, hanya published) ---
 await publishContent(c3.id);
 const s1 = await searchPublishedContents("duror");
 ok("search ketemu via judul", s1.length === 1 && s1[0].id === c3.id);
 const s2 = await searchPublishedContents("kitab maulid");
-ok("search ketemu via deskripsi", s2.length === 1);
+ok("search TIDAK ketemu via deskripsi", s2.length === 0);
 const s3 = await searchPublishedContents("ROBBI");
-ok("search case-insensitive via isi", s3.length === 1);
+ok("search TIDAK ketemu via isi (case-insensitive)", s3.length === 0);
 const s4 = await searchPublishedContents("badar");
 ok("search tidak menemukan draft", s4.length === 0);
 ok("search query kosong -> []", (await searchPublishedContents("  ")).length === 0);

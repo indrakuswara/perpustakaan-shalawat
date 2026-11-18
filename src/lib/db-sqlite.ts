@@ -299,7 +299,7 @@ export function getPublishedBySlug(slug: string): ContentRow | null {
   return row ? mapContent(row) : null;
 }
 
-// Pencarian publik: judul + deskripsi + isi, HANYA yang published.
+// Pencarian publik: JUDUL SAJA, HANYA yang published.
 export function searchPublishedContents(
   query: string,
   type?: ContentType,
@@ -313,9 +313,8 @@ export function searchPublishedContents(
     sql += " AND type = ?";
     params.push(type);
   }
-  sql +=
-    " AND (title LIKE ? OR description LIKE ? OR body LIKE ?) ORDER BY updated_at DESC";
-  params.push(like, like, like);
+  sql += " AND title LIKE ? ORDER BY updated_at DESC";
+  params.push(like);
   const rows = getDb().prepare(sql).all(...params);
   return (rows as unknown[]).map(mapContent);
 }
