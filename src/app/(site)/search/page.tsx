@@ -6,7 +6,7 @@ import SearchForm from "@/components/site/SearchForm";
 
 export const metadata: Metadata = {
   title: "Cari",
-  description: "Cari shalawat dan maulid berdasarkan judul atau isi.",
+  description: "Cari shalawat dan maulid berdasarkan judul.",
 };
 
 export default async function SearchPage({

@@ -1615,7 +1615,14 @@ test.describe.serial("search title-only", () => {
     });
     await test.step("Query kata deskripsi/isi (dummy) -> 0 hasil", async () => {
       await page.goto("/search?q=dummy");
-      await expect(page.locator('a[href^="/baca/"]')).toHaveCount(0);
+      // Scope ke kartu artikel temp ini saja, bukan hitungan global:
+      // "dummy" itu kata generik yang mengisi deskripsi dan isi
+      // SETIAP artikel sementara (createDraftArticle), jadi asersi
+      // nol-global rapuh terhadap artikel temp lain yang bocor.
+      // Artikel temp ini terbukti punya "dummy" di deskripsi + isi,
+      // jadi absennya kartu ini membuktikan kata deskripsi/isi
+      // tidak cocok.
+      await expect(page.locator(`a[href="/baca/${slug}"]`)).toHaveCount(0);
     });
     await test.step("Query judul -> artikel ketemu", async () => {
       await page.goto(`/search?q=${encodeURIComponent(title)}`);

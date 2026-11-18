@@ -4,13 +4,14 @@
 // judul + deskripsi + isi.
 // Dijalankan: node scripts/test-search-title-only.ts
 // (SQLite: file DB temp; Postgres: pg-mem.)
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import nodePath from "node:path";
 import { newDb } from "pg-mem";
 
 // Backend SQLite membaca DATABASE_URL secara lazy di getDb().
-process.env.DATABASE_URL = `file:${nodePath.join(mkdtempSync(nodePath.join(tmpdir(), "perpustakaan-search-")), "test.db")}`;
+const tempDir = mkdtempSync(nodePath.join(tmpdir(), "perpustakaan-search-"));
+process.env.DATABASE_URL = `file:${nodePath.join(tempDir, "test.db")}`;
 
 import * as sqliteBackend from "../src/lib/db-sqlite.ts";
 import * as pgBackend from "../src/lib/db-pg.ts";
@@ -89,15 +90,15 @@ async function checkBackend(
     description: "Kitab maulid pilihan",
     body: "Allahumma sholli sholatan kamilah",
   });
-  // Draft: judulnya mengandung "badar", tapi belum terbit.
-  const draft = await create({
+  // Draft: judulnya mengandung "badar", tapi belum terbit (sengaja
+  // tidak dimasukkan ke ids, jadi tidak diterbitkan).
+  await create({
     title: "Shalawat Badar",
     type: "SHALAWAT",
     body: "Sholatullah salamullah",
   });
   // Terbitkan semua kecuali draft.
   for (const id of ids) await publish(id);
-  void draft;
 
   // Kata yang HANYA ada di isi bait -> 0 hasil.
   ok(
@@ -154,27 +155,33 @@ async function checkBackend(
   );
 }
 
-console.log("== SQLite ==");
-await checkBackend(
-  "sqlite",
-  (input) => sqliteBackend.createContent(input),
-  (id) => sqliteBackend.publishContent(id),
-  (query, type) => sqliteBackend.searchPublishedContents(query, type),
-);
-
-console.log("== Postgres (pg-mem) ==");
-{
-  const mem = newDb();
-  const pg = mem.adapters.createPg();
-  const pool = new pg.Pool();
-  setPoolForTests(pool as never);
+try {
+  console.log("== SQLite ==");
   await checkBackend(
-    "pg",
-    (input) => pgBackend.createContent(input),
-    (id) => pgBackend.publishContent(id),
-    (query, type) => pgBackend.searchPublishedContents(query, type),
+    "sqlite",
+    (input) => sqliteBackend.createContent(input),
+    (id) => sqliteBackend.publishContent(id),
+    (query, type) => sqliteBackend.searchPublishedContents(query, type),
   );
+
+  console.log("== Postgres (pg-mem) ==");
+  {
+    const mem = newDb();
+    const pg = mem.adapters.createPg();
+    const pool = new pg.Pool();
+    setPoolForTests(pool as never);
+    await checkBackend(
+      "pg",
+      (input) => pgBackend.createContent(input),
+      (id) => pgBackend.publishContent(id),
+      (query, type) => pgBackend.searchPublishedContents(query, type),
+    );
+  }
+
+  console.log(`\n${passed} lulus, ${failed} gagal`);
+} finally {
+  // Bersihkan DB temp SQLite sesudah test selesai.
+  rmSync(tempDir, { recursive: true, force: true });
 }
 
-console.log(`\n${passed} lulus, ${failed} gagal`);
 process.exit(failed ? 1 : 0);
